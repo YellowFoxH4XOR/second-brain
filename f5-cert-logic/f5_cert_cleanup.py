@@ -995,6 +995,7 @@ class F5CertificateCleanup:
             f.write(html_content)
         
         print(f"✅ Report saved to: {os.path.abspath(output_file)}")
+        return output_file
     
     def create_certificate_backup(self, certificates: List[CertificateInfo], used_certificates: List[Tuple[CertificateInfo, List[CertificateUsage]]], backup_file: str = None):
         """
@@ -2086,6 +2087,489 @@ class F5CertificateCleanup:
                     ))
         except Exception as e:
             print(f"    ⚠️  Warning: Could not check Syslog destinations in partition {partition}: {e}")
+    
+    def get_running_config(self) -> Dict[str, any]:
+        """
+        Get the current running configuration from the F5 device
+        
+        Returns:
+            Dictionary containing the running configuration
+        """
+        try:
+            print("📥 Retrieving running configuration...")
+            
+            # Get the current running configuration
+            response = self._make_request('GET', '/mgmt/tm/sys/config')
+            
+            # Extract the configuration text
+            config_data = response.json()
+            
+            # Also get key configuration sections for detailed tracking
+            sections = {
+                'timestamp': datetime.datetime.now().isoformat(),
+                'device_hostname': self.original_host,
+                'raw_config': config_data,
+                'ssl_profiles': {},
+                'monitors': {},
+                'certificates': {},
+                'virtual_servers': {},
+                'gtm_objects': {}
+            }
+            
+            # Get SSL profiles
+            try:
+                client_ssl_response = self._make_request('GET', '/mgmt/tm/ltm/profile/client-ssl')
+                sections['ssl_profiles']['client_ssl'] = client_ssl_response.json().get('items', [])
+            except Exception as e:
+                print(f"  ⚠️  Warning: Could not retrieve Client-SSL profiles: {e}")
+            
+            try:
+                server_ssl_response = self._make_request('GET', '/mgmt/tm/ltm/profile/server-ssl')
+                sections['ssl_profiles']['server_ssl'] = server_ssl_response.json().get('items', [])
+            except Exception as e:
+                print(f"  ⚠️  Warning: Could not retrieve Server-SSL profiles: {e}")
+            
+            # Get monitors
+            try:
+                ltm_monitors_response = self._make_request('GET', '/mgmt/tm/ltm/monitor/https')
+                sections['monitors']['ltm_https'] = ltm_monitors_response.json().get('items', [])
+            except Exception as e:
+                print(f"  ⚠️  Warning: Could not retrieve LTM HTTPS monitors: {e}")
+            
+            if self.is_gtm_available():
+                try:
+                    gtm_monitors_response = self._make_request('GET', '/mgmt/tm/gtm/monitor/https')
+                    sections['monitors']['gtm_https'] = gtm_monitors_response.json().get('items', [])
+                except Exception as e:
+                    print(f"  ⚠️  Warning: Could not retrieve GTM HTTPS monitors: {e}")
+            
+            # Get certificates
+            try:
+                certs_response = self._make_request('GET', '/mgmt/tm/sys/file/ssl-cert')
+                sections['certificates'] = certs_response.json().get('items', [])
+            except Exception as e:
+                print(f"  ⚠️  Warning: Could not retrieve SSL certificates: {e}")
+            
+            # Get Virtual Servers (sample from Common partition)
+            try:
+                vs_response = self._make_request('GET', '/mgmt/tm/ltm/virtual?$filter=partition eq Common')
+                sections['virtual_servers'] = vs_response.json().get('items', [])
+            except Exception as e:
+                print(f"  ⚠️  Warning: Could not retrieve Virtual Servers: {e}")
+            
+            print(f"✅ Running configuration retrieved successfully")
+            return sections
+            
+        except Exception as e:
+            print(f"❌ Failed to retrieve running configuration: {e}")
+            return {'error': str(e), 'timestamp': datetime.datetime.now().isoformat()}
+    
+    def save_running_config(self, config: Dict[str, any], filename: str = None) -> str:
+        """
+        Save running configuration to a JSON file
+        
+        Args:
+            config: Configuration dictionary
+            filename: Optional filename (auto-generated if not provided)
+            
+        Returns:
+            Path to saved configuration file
+        """
+        try:
+            if filename is None:
+                # Auto-generate filename with device IP and timestamp
+                device_ip = self.original_host.replace('https://', '').replace('http://', '').replace(':', '_').replace('.', '_')
+                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f"config_{device_ip}_{timestamp}.json"
+            
+            # Save configuration to file
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, default=str)
+            
+            print(f"💾 Running configuration saved to: {filename}")
+            return filename
+            
+        except Exception as e:
+            print(f"❌ Failed to save running configuration: {e}")
+            return ""
+    
+    def generate_config_diff_html(self, pre_config: Dict[str, any], post_config: Dict[str, any], 
+                                 output_file: str = None) -> str:
+        """
+        Generate an HTML diff report comparing pre and post configurations
+        
+        Args:
+            pre_config: Configuration before cleanup
+            post_config: Configuration after cleanup
+            output_file: Optional output filename
+            
+        Returns:
+            Path to generated HTML diff file
+        """
+        try:
+            if output_file is None:
+                # Auto-generate filename with device IP
+                device_ip = self.original_host.replace('https://', '').replace('http://', '').replace(':', '_').replace('.', '_')
+                output_file = f"diff_{device_ip}.html"
+            
+            # Generate diff analysis
+            changes = self._analyze_config_changes(pre_config, post_config)
+            
+            # Generate HTML content
+            html_content = self._generate_diff_html_content(changes, pre_config, post_config)
+            
+            # Write HTML file
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            print(f"📄 Configuration diff report generated: {output_file}")
+            return output_file
+            
+        except Exception as e:
+            print(f"❌ Failed to generate configuration diff: {e}")
+            return ""
+    
+    def _analyze_config_changes(self, pre_config: Dict[str, any], post_config: Dict[str, any]) -> Dict[str, any]:
+        """
+        Analyze changes between pre and post configurations
+        
+        Args:
+            pre_config: Configuration before cleanup
+            post_config: Configuration after cleanup
+            
+        Returns:
+            Dictionary containing analysis of changes
+        """
+        changes = {
+            'certificates_deleted': [],
+            'ssl_profiles_modified': [],
+            'monitors_modified': [],
+            'summary': {
+                'total_changes': 0,
+                'certificates_removed': 0,
+                'profiles_updated': 0,
+                'monitors_updated': 0
+            }
+        }
+        
+        # Compare certificates
+        pre_certs = {cert.get('name'): cert for cert in pre_config.get('certificates', [])}
+        post_certs = {cert.get('name'): cert for cert in post_config.get('certificates', [])}
+        
+        for cert_name in pre_certs:
+            if cert_name not in post_certs:
+                changes['certificates_deleted'].append({
+                    'name': cert_name,
+                    'fullPath': pre_certs[cert_name].get('fullPath', ''),
+                    'expirationDate': pre_certs[cert_name].get('expirationDate', ''),
+                    'subject': pre_certs[cert_name].get('subject', '')
+                })
+                changes['summary']['certificates_removed'] += 1
+        
+        # Compare SSL profiles
+        self._compare_ssl_profiles(pre_config, post_config, changes)
+        
+        # Compare monitors
+        self._compare_monitors(pre_config, post_config, changes)
+        
+        # Calculate total changes
+        changes['summary']['total_changes'] = (
+            changes['summary']['certificates_removed'] + 
+            changes['summary']['profiles_updated'] + 
+            changes['summary']['monitors_updated']
+        )
+        
+        return changes
+    
+    def _compare_ssl_profiles(self, pre_config: Dict[str, any], post_config: Dict[str, any], 
+                            changes: Dict[str, any]) -> None:
+        """Compare SSL profiles between pre and post configurations"""
+        
+        # Compare Client-SSL profiles
+        pre_client_ssl = {p.get('name'): p for p in pre_config.get('ssl_profiles', {}).get('client_ssl', [])}
+        post_client_ssl = {p.get('name'): p for p in post_config.get('ssl_profiles', {}).get('client_ssl', [])}
+        
+        for profile_name in pre_client_ssl:
+            if profile_name in post_client_ssl:
+                pre_profile = pre_client_ssl[profile_name]
+                post_profile = post_client_ssl[profile_name]
+                
+                # Compare cert key chains
+                pre_chains = pre_profile.get('certKeyChain', [])
+                post_chains = post_profile.get('certKeyChain', [])
+                
+                if pre_chains != post_chains:
+                    changes['ssl_profiles_modified'].append({
+                        'type': 'Client-SSL Profile',
+                        'name': profile_name,
+                        'fullPath': pre_profile.get('fullPath', ''),
+                        'changes': {
+                            'certKeyChain': {
+                                'before': pre_chains,
+                                'after': post_chains
+                            }
+                        }
+                    })
+                    changes['summary']['profiles_updated'] += 1
+        
+        # Compare Server-SSL profiles
+        pre_server_ssl = {p.get('name'): p for p in pre_config.get('ssl_profiles', {}).get('server_ssl', [])}
+        post_server_ssl = {p.get('name'): p for p in post_config.get('ssl_profiles', {}).get('server_ssl', [])}
+        
+        for profile_name in pre_server_ssl:
+            if profile_name in post_server_ssl:
+                pre_profile = pre_server_ssl[profile_name]
+                post_profile = post_server_ssl[profile_name]
+                
+                # Compare cert and key fields
+                cert_changed = pre_profile.get('cert') != post_profile.get('cert')
+                key_changed = pre_profile.get('key') != post_profile.get('key')
+                
+                if cert_changed or key_changed:
+                    profile_changes = {}
+                    if cert_changed:
+                        profile_changes['cert'] = {
+                            'before': pre_profile.get('cert'),
+                            'after': post_profile.get('cert')
+                        }
+                    if key_changed:
+                        profile_changes['key'] = {
+                            'before': pre_profile.get('key'),
+                            'after': post_profile.get('key')
+                        }
+                    
+                    changes['ssl_profiles_modified'].append({
+                        'type': 'Server-SSL Profile',
+                        'name': profile_name,
+                        'fullPath': pre_profile.get('fullPath', ''),
+                        'changes': profile_changes
+                    })
+                    changes['summary']['profiles_updated'] += 1
+    
+    def _compare_monitors(self, pre_config: Dict[str, any], post_config: Dict[str, any], 
+                         changes: Dict[str, any]) -> None:
+        """Compare monitors between pre and post configurations"""
+        
+        # Compare LTM HTTPS monitors
+        pre_ltm_monitors = {m.get('name'): m for m in pre_config.get('monitors', {}).get('ltm_https', [])}
+        post_ltm_monitors = {m.get('name'): m for m in post_config.get('monitors', {}).get('ltm_https', [])}
+        
+        for monitor_name in pre_ltm_monitors:
+            if monitor_name in post_ltm_monitors:
+                pre_monitor = pre_ltm_monitors[monitor_name]
+                post_monitor = post_ltm_monitors[monitor_name]
+                
+                if pre_monitor.get('cert') != post_monitor.get('cert'):
+                    changes['monitors_modified'].append({
+                        'type': 'LTM HTTPS Monitor',
+                        'name': monitor_name,
+                        'fullPath': pre_monitor.get('fullPath', ''),
+                        'changes': {
+                            'cert': {
+                                'before': pre_monitor.get('cert'),
+                                'after': post_monitor.get('cert')
+                            }
+                        }
+                    })
+                    changes['summary']['monitors_updated'] += 1
+        
+        # Compare GTM HTTPS monitors
+        pre_gtm_monitors = {m.get('name'): m for m in pre_config.get('monitors', {}).get('gtm_https', [])}
+        post_gtm_monitors = {m.get('name'): m for m in post_config.get('monitors', {}).get('gtm_https', [])}
+        
+        for monitor_name in pre_gtm_monitors:
+            if monitor_name in post_gtm_monitors:
+                pre_monitor = pre_gtm_monitors[monitor_name]
+                post_monitor = post_gtm_monitors[monitor_name]
+                
+                if pre_monitor.get('cert') != post_monitor.get('cert'):
+                    changes['monitors_modified'].append({
+                        'type': 'GTM HTTPS Monitor',
+                        'name': monitor_name,
+                        'fullPath': pre_monitor.get('fullPath', ''),
+                        'changes': {
+                            'cert': {
+                                'before': pre_monitor.get('cert'),
+                                'after': post_monitor.get('cert')
+                            }
+                        }
+                    })
+                    changes['summary']['monitors_updated'] += 1
+    
+    def _generate_diff_html_content(self, changes: Dict[str, any], pre_config: Dict[str, any], 
+                                   post_config: Dict[str, any]) -> str:
+        """Generate HTML content for the configuration diff report"""
+        
+        device_info = pre_config.get('device_hostname', 'Unknown Device')
+        pre_timestamp = pre_config.get('timestamp', 'Unknown')
+        post_timestamp = post_config.get('timestamp', 'Unknown')
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F5 Configuration Diff Report - {device_info}</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }}
+        .container {{ max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; }}
+        .header h1 {{ margin: 0; font-size: 28px; }}
+        .header p {{ margin: 10px 0 0 0; opacity: 0.9; }}
+        .content {{ padding: 30px; }}
+        .summary {{ background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 30px; border-left: 4px solid #28a745; }}
+        .summary h2 {{ margin: 0 0 15px 0; color: #28a745; }}
+        .summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }}
+        .summary-item {{ text-align: center; }}
+        .summary-number {{ font-size: 32px; font-weight: bold; color: #495057; }}
+        .summary-label {{ color: #6c757d; font-size: 14px; }}
+        .section {{ margin-bottom: 30px; }}
+        .section h3 {{ color: #495057; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; }}
+        .change-item {{ background: #fff; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 15px; padding: 20px; }}
+        .change-header {{ font-weight: bold; color: #495057; margin-bottom: 10px; }}
+        .change-path {{ color: #6c757d; font-size: 14px; margin-bottom: 15px; }}
+        .change-details {{ font-family: monospace; background: #f8f9fa; padding: 15px; border-radius: 4px; }}
+        .before {{ color: #dc3545; background: #f8d7da; padding: 8px; border-radius: 4px; margin: 5px 0; }}
+        .after {{ color: #28a745; background: #d4edda; padding: 8px; border-radius: 4px; margin: 5px 0; }}
+        .no-changes {{ text-align: center; color: #6c757d; padding: 40px; }}
+        .timestamp {{ font-size: 12px; color: #6c757d; }}
+        .cert-info {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 F5 Configuration Diff Report</h1>
+            <p>Certificate Cleanup Impact Analysis for {device_info}</p>
+        </div>
+        
+        <div class="content">
+            <div class="summary">
+                <h2>📊 Summary of Changes</h2>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <div class="summary-number">{changes['summary']['total_changes']}</div>
+                        <div class="summary-label">Total Changes</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-number">{changes['summary']['certificates_removed']}</div>
+                        <div class="summary-label">Certificates Deleted</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-number">{changes['summary']['profiles_updated']}</div>
+                        <div class="summary-label">SSL Profiles Updated</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-number">{changes['summary']['monitors_updated']}</div>
+                        <div class="summary-label">Monitors Updated</div>
+                    </div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <div class="timestamp">Pre-cleanup: {pre_timestamp}</div>
+                    <div class="timestamp">Post-cleanup: {post_timestamp}</div>
+                </div>
+            </div>
+        """
+        
+        # Add certificates deleted section
+        if changes['certificates_deleted']:
+            html_content += """
+            <div class="section">
+                <h3>🗑️ Certificates Deleted</h3>
+            """
+            for cert in changes['certificates_deleted']:
+                exp_date = 'Unknown'
+                if cert.get('expirationDate'):
+                    try:
+                        exp_date = datetime.datetime.fromtimestamp(cert['expirationDate']).strftime('%Y-%m-%d %H:%M:%S')
+                    except:
+                        exp_date = str(cert['expirationDate'])
+                
+                html_content += f"""
+                <div class="change-item">
+                    <div class="change-header">🔒 {cert['name']}</div>
+                    <div class="change-path">{cert['fullPath']}</div>
+                    <div class="cert-info">
+                        <div><strong>Subject:</strong> {cert.get('subject', 'N/A')}</div>
+                        <div><strong>Expiration:</strong> {exp_date}</div>
+                    </div>
+                </div>
+                """
+            html_content += "</div>"
+        
+        # Add SSL profiles modified section
+        if changes['ssl_profiles_modified']:
+            html_content += """
+            <div class="section">
+                <h3>🔧 SSL Profiles Modified</h3>
+            """
+            for profile in changes['ssl_profiles_modified']:
+                html_content += f"""
+                <div class="change-item">
+                    <div class="change-header">⚙️ {profile['type']}: {profile['name']}</div>
+                    <div class="change-path">{profile['fullPath']}</div>
+                    <div class="change-details">
+                """
+                
+                for field, change in profile['changes'].items():
+                    if field == 'certKeyChain':
+                        html_content += f"<strong>{field}:</strong><br/>"
+                        html_content += f'<div class="before">Before: {json.dumps(change["before"], indent=2)}</div>'
+                        html_content += f'<div class="after">After: {json.dumps(change["after"], indent=2)}</div>'
+                    else:
+                        html_content += f'<strong>{field}:</strong><br/>'
+                        html_content += f'<div class="before">Before: {change["before"]}</div>'
+                        html_content += f'<div class="after">After: {change["after"]}</div>'
+                
+                html_content += """
+                    </div>
+                </div>
+                """
+            html_content += "</div>"
+        
+        # Add monitors modified section
+        if changes['monitors_modified']:
+            html_content += """
+            <div class="section">
+                <h3>📡 Monitors Modified</h3>
+            """
+            for monitor in changes['monitors_modified']:
+                html_content += f"""
+                <div class="change-item">
+                    <div class="change-header">📊 {monitor['type']}: {monitor['name']}</div>
+                    <div class="change-path">{monitor['fullPath']}</div>
+                    <div class="change-details">
+                """
+                
+                for field, change in monitor['changes'].items():
+                    html_content += f'<strong>{field}:</strong><br/>'
+                    html_content += f'<div class="before">Before: {change["before"]}</div>'
+                    html_content += f'<div class="after">After: {change["after"]}</div>'
+                
+                html_content += """
+                    </div>
+                </div>
+                """
+            html_content += "</div>"
+        
+        # No changes section
+        if changes['summary']['total_changes'] == 0:
+            html_content += """
+            <div class="no-changes">
+                <h3>✅ No Configuration Changes Detected</h3>
+                <p>The certificate cleanup operation did not result in any configuration changes.</p>
+            </div>
+            """
+        
+        html_content += """
+        </div>
+    </div>
+</body>
+</html>
+        """
+        
+        return html_content
 
 def process_multiple_devices(devices: List[DeviceInfo], username: str = "", password: str = "", 
                            expiry_days: int = 30, report_only: bool = False, 
@@ -2567,7 +3051,7 @@ Examples:
             # Generate HTML report (single device format)
             # Use provided filename or auto-generate with device IP
             report_file = args.report_file if args.report_file != 'f5_cert_cleanup_report.html' else None
-            f5_cleanup.generate_html_report(report, report_file)
+            generated_report_file = f5_cleanup.generate_html_report(report, report_file)
             
             # Print summary
             print(f"\n📊 Cleanup Summary:")
@@ -2585,10 +3069,16 @@ Examples:
                 print("\n✅ No expired certificates found - no cleanup needed!")
                 return
             
+            # 🔍 PRE-CHECK: Save running configuration before any changes
+            print(f"\n🔍 Pre-cleanup configuration check...")
+            pre_config = f5_cleanup.get_running_config()
+            pre_config_file = f5_cleanup.save_running_config(pre_config, None)
+            
             # Ask for user confirmation
             print(f"\n⚠️  This will delete {len(report.expired_certificates)} expired certificate(s)")
             print(f"   - {len(report.unused_expired)} will be deleted directly")
             print(f"   - {len(report.used_expired)} will be dereferenced first")
+            print(f"\n📥 Pre-cleanup configuration saved to: {pre_config_file}")
             
             confirm = input("\n❓ Do you want to proceed with the cleanup? (yes/no): ").lower().strip()
             
@@ -2598,6 +3088,15 @@ Examples:
             
             # Execute cleanup
             stats = f5_cleanup.execute_cleanup(report)
+            
+            # 🔍 POST-CHECK: Save running configuration after changes and generate diff
+            print(f"\n🔍 Post-cleanup configuration check...")
+            post_config = f5_cleanup.get_running_config()
+            post_config_file = f5_cleanup.save_running_config(post_config, None)
+            
+            # Generate configuration diff report
+            print(f"\n📊 Generating configuration diff report...")
+            diff_report_file = f5_cleanup.generate_config_diff_html(pre_config, post_config)
             
             # Print final results
             print(f"\n🎉 Cleanup completed!")
@@ -2610,6 +3109,14 @@ Examples:
                 print(f"  ❌ Failed dereferencing: {stats['failed_dereference']}")
                 print(f"  ❌ Failed certificate deletions: {stats['failed_delete']}")
                 print(f"  ❌ Failed key deletions: {stats['failed_key_delete']}")
+            
+            # Print file locations
+            print(f"\n📁 Generated Files:")
+            print(f"  📄 Certificate cleanup report: {generated_report_file}")
+            print(f"  📥 Pre-cleanup configuration: {pre_config_file}")
+            print(f"  📤 Post-cleanup configuration: {post_config_file}")
+            if diff_report_file:
+                print(f"  🔍 Configuration diff report: {diff_report_file}")
         
     except KeyboardInterrupt:
         print("\n❌ Operation cancelled by user")

@@ -21,6 +21,7 @@ To disable optimization (for compatibility): `--disable-bulk-optimization`
 - **🔍 Comprehensive Discovery**: Automatically discovers certificates across all F5 partitions
 - **📊 Usage Analysis**: Checks certificate usage across 15+ different F5 object types
 - **🚨 Service Impact Prevention**: Built-in safety checks prevent dereferencing from active Virtual Servers and GTM objects
+- **🔍 Configuration Tracking**: Pre/post configuration backups with detailed diff reports for complete audit trails
 - **⚡ Performance Optimized**: Bulk API operations reduce scan time by up to 95%
 - **🛡️ Safety First**: Never deletes default certificates, creates backups before deletion
 - **📄 Detailed Reporting**: Generates comprehensive HTML reports with actionable insights
@@ -62,6 +63,60 @@ Before dereferencing certificates from GTM HTTPS monitors, the script:
     ✅ Virtual Server test-vs is inactive (enabled: False, available: False)
   🛑 ABORTED: 1 active Virtual Server(s) found. Certificate dereferencing blocked.
   💡 Recommendation: Disable affected Virtual Servers during maintenance window.
+```
+
+## 🔍 Configuration Diff & Change Tracking
+
+**NEW**: The script now includes comprehensive configuration tracking to provide a complete audit trail of all changes.
+
+### Pre/Post Configuration Checks 📋
+Before and after any cleanup operations, the script automatically:
+- ✅ Captures complete F5 running configuration
+- ✅ Saves configuration snapshots with timestamps
+- ✅ Tracks SSL profiles, monitors, certificates, and Virtual Servers
+- ✅ Generates detailed HTML diff reports showing all changes
+
+### Configuration Diff Report 📊
+The `diff_{device_ip}.html` report provides:
+- **Summary Dashboard**: Overview of total changes made
+- **Certificates Deleted**: Complete list with expiration details
+- **SSL Profiles Modified**: Before/after comparison of certificate assignments
+- **Monitors Updated**: Changes to HTTPS monitor certificate references
+- **Visual Diff Display**: Color-coded before/after comparisons
+
+### Enhanced Workflow 🔄
+```
+1. Certificate Analysis → 2. Pre-Config Backup → 3. User Confirmation
+        ↓
+4. Safety Checks → 5. Certificate Cleanup → 6. Post-Config Backup
+        ↓
+7. Diff Report Generation → 8. Complete Audit Trail
+```
+
+### Generated Files 📁
+After cleanup completion, you'll have:
+- `f5_cert_cleanup_report_{ip}.html` - Certificate cleanup report
+- `config_{ip}_pre.json` - Pre-cleanup configuration backup
+- `config_{ip}_post.json` - Post-cleanup configuration backup  
+- `diff_{ip}.html` - **Configuration diff report**
+
+**Example Configuration Diff Output**:
+```html
+📊 Summary of Changes
+Total Changes: 5
+Certificates Deleted: 3
+SSL Profiles Updated: 2
+Monitors Updated: 0
+
+🗑️ Certificates Deleted
+- /Common/expired-web-cert.crt (expired 45 days ago)
+- /Common/old-api-cert.crt (expired 12 days ago)
+
+🔧 SSL Profiles Modified  
+- Client-SSL Profile: web-ssl-profile
+  certKeyChain: 
+    Before: [{"cert": "/Common/expired-web-cert.crt"}]
+    After: [{"cert": "/Common/default.crt"}]
 ```
 
 ## 🚀 Quick Start
@@ -323,9 +378,16 @@ The script checks certificate usage in:
   Safe to delete: 1
   Require dereferencing: 3
 
+🔍 Pre-cleanup configuration check...
+📥 Retrieving running configuration...
+✅ Running configuration retrieved successfully
+💾 Running configuration saved to: config_192_168_1_100_20241215_143022.json
+
 ⚠️  This will delete 4 expired certificate(s)
    - 1 will be deleted directly
    - 3 will be dereferenced first
+
+📥 Pre-cleanup configuration saved to: config_192_168_1_100_20241215_143022.json
 
 ❓ Do you want to proceed with the cleanup? (yes/no): yes
 
@@ -354,11 +416,25 @@ The script checks certificate usage in:
     ✅ Successfully dereferenced
   ✅ Deleted certificate: expired_ldap_ca.crt
 
+🔍 Post-cleanup configuration check...
+📥 Retrieving running configuration...
+✅ Running configuration retrieved successfully
+💾 Running configuration saved to: config_192_168_1_100_20241215_143045.json
+
+📊 Generating configuration diff report...
+📄 Configuration diff report generated: diff_192_168_1_100.html
+
 🎉 Cleanup completed!
   ✅ Deleted unused certificates: 1
   ✅ Deleted used certificates: 3
   🔑 Deleted SSL keys: 4
   🔄 Dereferenced objects: 3
+
+📁 Generated Files:
+  📄 Certificate cleanup report: f5_cert_cleanup_report_192_168_1_100.html
+  📥 Pre-cleanup configuration: config_192_168_1_100_20241215_143022.json
+  📤 Post-cleanup configuration: config_192_168_1_100_20241215_143045.json
+  🔍 Configuration diff report: diff_192_168_1_100.html
 ```
 
 ### Batch Mode Example Output
