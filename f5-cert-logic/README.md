@@ -21,13 +21,41 @@ To disable optimization (for compatibility): `--disable-bulk-optimization`
 - **🔍 Comprehensive Discovery**: Automatically discovers certificates across all F5 partitions
 - **📊 Usage Analysis**: Checks certificate usage across 15+ different F5 object types
 - **🚨 Service Impact Prevention**: Built-in safety checks prevent dereferencing from active Virtual Servers and GTM objects
-- **🔍 Configuration Tracking**: Pre/post configuration backups with detailed diff reports for complete audit trails
+- **🔧 Multi-Partition Dereferencing**: **FIXED** - Certificate dereferencing now properly handles ALL F5 partitions with correct REST API paths
+- **🔍 Configuration Tracking**: Pre/post configuration backups with **GitHub-style diff reports** showing line-by-line changes
+- **📄 Visual Diff Display**: Professional diff view with syntax highlighting, context lines, and unified diff format
 - **⚡ Performance Optimized**: Bulk API operations reduce scan time by up to 95%
 - **🛡️ Safety First**: Never deletes default certificates, creates backups before deletion
 - **📄 Detailed Reporting**: Generates comprehensive HTML reports with actionable insights
 - **🔧 Flexible Targeting**: Support for single devices or batch operations across device fleets
 - **🌐 Multi-Partition Support**: Works seamlessly across all F5 administrative partitions
 - **🔒 TLS Compatibility**: Intelligent TLS version negotiation for devices with different TLS requirements
+
+## 🔧 Critical Dereferencing Fix: Multi-Partition Support
+
+**CRITICAL FIX**: The certificate dereferencing logic has been completely fixed to properly handle ALL F5 partitions.
+
+### What Was Broken ❌
+- **Single-partition limitation**: Dereferencing only worked for objects in the Common partition
+- **Incorrect API paths**: Used simple object names instead of partition-aware paths
+- **Silent failures**: Objects in non-Common partitions would fail to dereference without clear error messages
+
+### What's Fixed Now ✅
+- **Proper partition handling**: Constructs correct F5 REST API paths using `~Partition~ObjectName` format
+- **Enhanced debugging**: Detailed logging shows exact API calls and responses for troubleshooting
+- **Robust error handling**: Clear error messages with context when dereferencing fails
+- **Universal compatibility**: Works seamlessly across ALL F5 partitions and environments
+
+### Example Fix Impact
+**Before (Broken)**:
+```
+endpoint = "/mgmt/tm/ltm/profile/client-ssl/web-ssl"  # ❌ Fails for non-Common partitions
+```
+
+**After (Fixed)**:
+```
+endpoint = "/mgmt/tm/ltm/profile/client-ssl/~WebApp~web-ssl"  # ✅ Works for all partitions
+```
 
 ## 🚨 Safety Checks: Service Impact Prevention
 
@@ -80,10 +108,19 @@ Before and after any cleanup operations, the script automatically:
 ### Configuration Diff Report 📊
 The `diff_{device_ip}.html` report provides:
 - **Summary Dashboard**: Overview of total changes made
+- **GitHub-Style Running Config Diff**: Line-by-line comparison of F5 running configuration changes
 - **Certificates Deleted**: Complete list with expiration details
 - **SSL Profiles Modified**: Before/after comparison of certificate assignments
 - **Monitors Updated**: Changes to HTTPS monitor certificate references
-- **Visual Diff Display**: Color-coded before/after comparisons
+- **Visual Diff Display**: Color-coded before/after comparisons with syntax highlighting
+
+### GitHub-Style Configuration Diff 🔍
+**NEW**: The diff report now includes a GitHub-style unified diff view of the actual F5 running configuration:
+- **Line-by-line changes**: Shows exact configuration text modifications
+- **Syntax highlighting**: Green (+) for additions, red (-) for deletions
+- **Context lines**: Includes surrounding lines for better understanding
+- **Professional formatting**: Monospace font with hover effects for easy reading
+- **Comprehensive coverage**: Captures all changes made during certificate cleanup
 
 ### Technical Implementation 🔧
 **Command-Based Configuration Retrieval**
@@ -120,6 +157,21 @@ Total Changes: 5
 Certificates Deleted: 3
 SSL Profiles Updated: 2
 Monitors Updated: 0
+
+📄 Running Configuration Changes
+F5 Running Configuration Diff (show running-config)
+
+@@ -245,7 +245,7 @@ ltm profile client-ssl web-ssl-profile {
+     app-service none
+     cert-key-chain {
+         default {
+-            cert /Common/expired-web-cert.crt
++            cert /Common/default.crt
+             chain none
+-            key /Common/expired-web-cert.key
++            key /Common/default.key
+         }
+     }
 
 🗑️ Certificates Deleted
 - /Common/expired-web-cert.crt (expired 45 days ago)

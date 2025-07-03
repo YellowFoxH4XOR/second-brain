@@ -26,6 +26,7 @@ import argparse
 import getpass
 import csv
 import ssl
+import difflib
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -1090,6 +1091,8 @@ class F5CertificateCleanup:
             Tuple of (default_cert_path, default_key_path)
         """
         try:
+            print(f"    🔍 Looking for default certificate in partition: {partition}")
+            
             # Try to find partition-specific default certificate first
             partition_default_cert = f"/{partition}/default.crt"
             partition_default_key = f"/{partition}/default.key"
@@ -1097,16 +1100,45 @@ class F5CertificateCleanup:
             # Check if partition-specific defaults exist
             try:
                 response = self._make_request('GET', f'/mgmt/tm/sys/file/ssl-cert?$filter=partition eq {partition}')
-                for cert in response.json().get('items', []):
-                    if cert.get('name') == 'default.crt':
+                certificates = response.json().get('items', [])
+                
+                for cert in certificates:
+                    cert_name = cert.get('name', '')
+                    if cert_name == 'default.crt':
+                        print(f"    ✅ Found partition-specific default certificate: {partition_default_cert}")
                         return partition_default_cert, partition_default_key
-            except:
-                pass
+                
+                print(f"    ℹ️  No partition-specific default found in {partition}, using Common default")
+                
+            except Exception as e:
+                print(f"    ⚠️  Could not check for partition-specific defaults in {partition}: {e}")
             
-            return "/Common/default.crt", "/Common/default.key"
-            
-        except:
             # Fall back to Common default
+            common_default_cert = "/Common/default.crt"
+            common_default_key = "/Common/default.key"
+            
+            # Verify Common default exists
+            try:
+                response = self._make_request('GET', '/mgmt/tm/sys/file/ssl-cert?$filter=partition eq Common')
+                certificates = response.json().get('items', [])
+                
+                for cert in certificates:
+                    if cert.get('name') == 'default.crt':
+                        print(f"    ✅ Using Common default certificate: {common_default_cert}")
+                        return common_default_cert, common_default_key
+                
+                print(f"    ⚠️  Warning: No default.crt found in Common partition!")
+                
+            except Exception as e:
+                print(f"    ⚠️  Warning: Could not verify Common default certificate: {e}")
+            
+            # Return Common default even if verification failed
+            print(f"    🔄 Defaulting to: {common_default_cert} (may not exist)")
+            return common_default_cert, common_default_key
+            
+        except Exception as e:
+            print(f"    ❌ Error in get_default_certificate_for_partition: {e}")
+            # Fall back to Common default as last resort
             return "/Common/default.crt", "/Common/default.key"
     
     def check_virtual_server_status(self, usage: CertificateUsage) -> bool:
@@ -1493,6 +1525,16 @@ class F5CertificateCleanup:
             default_cert, default_key = self.get_default_certificate_for_partition(usage.partition)
             print(f"    Using default certificate: {default_cert}")
             
+            # Construct proper F5 REST API path with partition handling
+            # F5 REST API requires: /endpoint/~Partition~ObjectName format for non-Common objects
+            if usage.partition and usage.partition != 'Common':
+                object_path = f"~{usage.partition}~{usage.object_name}"
+            else:
+                object_path = f"~Common~{usage.object_name}"
+            
+            # URL encode the object path
+            encoded_object_path = object_path.replace('/', '~')
+            
             if usage.object_type == 'Client-SSL Profile':
                 # Replace in Client-SSL profile
                 update_data = {
@@ -1504,7 +1546,7 @@ class F5CertificateCleanup:
                         }
                     ]
                 }
-                endpoint = f"/mgmt/tm/ltm/profile/client-ssl/{usage.object_name.replace('/', '~')}"
+                endpoint = f"/mgmt/tm/ltm/profile/client-ssl/{encoded_object_path}"
                 
             elif usage.object_type == 'Server-SSL Profile':
                 # Replace in Server-SSL profile
@@ -1512,7 +1554,7 @@ class F5CertificateCleanup:
                     "cert": default_cert,
                     "key": default_key
                 }
-                endpoint = f"/mgmt/tm/ltm/profile/server-ssl/{usage.object_name.replace('/', '~')}"
+                endpoint = f"/mgmt/tm/ltm/profile/server-ssl/{encoded_object_path}"
                 
             elif usage.object_type in ['LTM HTTPS Monitor', 'GTM HTTPS Monitor']:
                 # Replace in monitor
@@ -1520,16 +1562,16 @@ class F5CertificateCleanup:
                     "cert": default_cert
                 }
                 if 'LTM' in usage.object_type:
-                    endpoint = f"/mgmt/tm/ltm/monitor/https/{usage.object_name.replace('/', '~')}"
+                    endpoint = f"/mgmt/tm/ltm/monitor/https/{encoded_object_path}"
                 else:
-                    endpoint = f"/mgmt/tm/gtm/monitor/https/{usage.object_name.replace('/', '~')}"
+                    endpoint = f"/mgmt/tm/gtm/monitor/https/{encoded_object_path}"
             
             elif usage.object_type == 'OCSP Responder':
                 # Replace in OCSP responder
                 update_data = {
                     "trustedResponders": [default_cert]
                 }
-                endpoint = f"/mgmt/tm/sys/crypto/cert-validator/ocsp/{usage.object_name.replace('/', '~')}"
+                endpoint = f"/mgmt/tm/sys/crypto/cert-validator/ocsp/{encoded_object_path}"
             
             elif usage.object_type == 'APM Authentication Profile':
                 # Replace in APM authentication profile
@@ -1541,7 +1583,7 @@ class F5CertificateCleanup:
                     update_data = {
                         "trustedCAs": [default_cert]
                     }
-                endpoint = f"/mgmt/tm/apm/profile/authentication/{usage.object_name.replace('/', '~')}"
+                endpoint = f"/mgmt/tm/apm/profile/authentication/{encoded_object_path}"
             
             elif usage.object_type == 'LDAP Server':
                 # Replace in LDAP server
@@ -1553,7 +1595,7 @@ class F5CertificateCleanup:
                     update_data = {
                         "sslClientCert": default_cert
                     }
-                endpoint = f"/mgmt/tm/auth/ldap/{usage.object_name.replace('/', '~')}"
+                endpoint = f"/mgmt/tm/auth/ldap/{encoded_object_path}"
             
             elif usage.object_type == 'RADIUS Server':
                 # Replace in RADIUS server
@@ -1562,7 +1604,7 @@ class F5CertificateCleanup:
                         "sslCaCertFile": default_cert
                     }
                 }
-                endpoint = f"/mgmt/tm/auth/radius-server/{usage.object_name.replace('/', '~')}"
+                endpoint = f"/mgmt/tm/auth/radius-server/{encoded_object_path}"
             
             elif usage.object_type == 'Syslog Destination':
                 # Replace in Syslog destination
@@ -1571,18 +1613,31 @@ class F5CertificateCleanup:
                         "cert": default_cert
                     }
                 }
+                # Syslog is a system-wide setting, not partition-specific
                 endpoint = f"/mgmt/tm/sys/syslog"
             
             else:
                 print(f"    ❌ Unknown object type: {usage.object_type}")
                 return False
             
+            # Add debug information for troubleshooting
+            print(f"    🔧 API Call: PATCH {endpoint}")
+            print(f"    📝 Update data: {update_data}")
+            
             response = self._make_request('PATCH', endpoint, json=update_data)
-            print(f"    ✅ Successfully dereferenced after safety checks")
-            return True
+            
+            if response.status_code in [200, 201, 202]:
+                print(f"    ✅ Successfully dereferenced after safety checks")
+                return True
+            else:
+                print(f"    ❌ API call failed with status {response.status_code}: {response.text}")
+                return False
             
         except Exception as e:
             print(f"    ❌ Failed to dereference: {e}")
+            print(f"    🔧 Debug info - Object: {usage.object_name}, Partition: {usage.partition}, Type: {usage.object_type}")
+            print(f"    🔧 Debug info - Endpoint: {endpoint if 'endpoint' in locals() else 'Not constructed'}")
+            print(f"    🔧 Debug info - Default cert: {default_cert if 'default_cert' in locals() else 'Not retrieved'}")
             return False
     
     def delete_ssl_key(self, key_name: str) -> bool:
@@ -2482,6 +2537,78 @@ class F5CertificateCleanup:
                     })
                     changes['summary']['monitors_updated'] += 1
     
+    def _generate_running_config_diff(self, pre_config: Dict[str, any], post_config: Dict[str, any]) -> str:
+        """
+        Generate a GitHub-style diff of the running configuration text
+        
+        Args:
+            pre_config: Configuration before cleanup
+            post_config: Configuration after cleanup
+            
+        Returns:
+            HTML formatted diff content
+        """
+        try:
+            # Get the raw configuration text
+            pre_config_text = pre_config.get('raw_config_text', '')
+            post_config_text = post_config.get('raw_config_text', '')
+            
+            if not pre_config_text or not post_config_text:
+                return '<div class="no-diff">No running configuration text available for comparison</div>'
+            
+            # Split into lines for difflib
+            pre_lines = pre_config_text.splitlines(keepends=True)
+            post_lines = post_config_text.splitlines(keepends=True)
+            
+            # Generate unified diff
+            diff_lines = list(difflib.unified_diff(
+                pre_lines, 
+                post_lines,
+                fromfile='Pre-cleanup Configuration',
+                tofile='Post-cleanup Configuration',
+                lineterm='',
+                n=3  # Context lines
+            ))
+            
+            if not diff_lines:
+                return '<div class="no-changes-diff">No changes detected in running configuration</div>'
+            
+            # Convert diff to HTML with GitHub-style formatting
+            html_diff = '<div class="running-config-diff">\n'
+            
+            for line in diff_lines:
+                line = line.rstrip('\n')
+                
+                # Skip diff headers (we'll add our own)
+                if line.startswith('---') or line.startswith('+++'):
+                    continue
+                elif line.startswith('@@'):
+                    # Hunk header
+                    html_diff += f'<div class="hunk-header">{self._escape_html(line)}</div>\n'
+                elif line.startswith('+'):
+                    # Added line
+                    content = self._escape_html(line[1:]) if len(line) > 1 else ''
+                    html_diff += f'<div class="diff-line added"><span class="line-marker">+</span><span class="line-content">{content}</span></div>\n'
+                elif line.startswith('-'):
+                    # Removed line
+                    content = self._escape_html(line[1:]) if len(line) > 1 else ''
+                    html_diff += f'<div class="diff-line removed"><span class="line-marker">-</span><span class="line-content">{content}</span></div>\n'
+                else:
+                    # Context line
+                    content = self._escape_html(line[1:]) if len(line) > 1 else ''
+                    html_diff += f'<div class="diff-line context"><span class="line-marker"> </span><span class="line-content">{content}</span></div>\n'
+            
+            html_diff += '</div>'
+            return html_diff
+            
+        except Exception as e:
+            return f'<div class="diff-error">Error generating running config diff: {str(e)}</div>'
+    
+    def _escape_html(self, text: str) -> str:
+        """Escape HTML special characters"""
+        import html
+        return html.escape(text)
+
     def _generate_diff_html_content(self, changes: Dict[str, any], pre_config: Dict[str, any], 
                                    post_config: Dict[str, any]) -> str:
         """Generate HTML content for the configuration diff report"""
@@ -2494,6 +2621,9 @@ class F5CertificateCleanup:
         pre_size = pre_config.get('config_size', 0)
         post_size = post_config.get('config_size', 0)
         config_method = pre_config.get('method', 'standard')
+        
+        # Generate running config diff
+        running_config_diff = self._generate_running_config_diff(pre_config, post_config)
         
         html_content = f"""
 <!DOCTYPE html>
@@ -2526,6 +2656,83 @@ class F5CertificateCleanup:
         .no-changes {{ text-align: center; color: #6c757d; padding: 40px; }}
         .timestamp {{ font-size: 12px; color: #6c757d; }}
         .cert-info {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }}
+        
+        /* GitHub-style diff styling */
+        .running-config-diff {{ 
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; 
+            font-size: 12px; 
+            border: 1px solid #d1d9e0; 
+            border-radius: 6px; 
+            background: #f6f8fa; 
+            margin: 20px 0;
+            overflow-x: auto;
+        }}
+        .diff-line {{ 
+            display: flex; 
+            line-height: 20px; 
+            margin: 0; 
+            padding: 0; 
+            white-space: pre; 
+            border: none;
+        }}
+        .diff-line.added {{ background-color: #e6ffed; }}
+        .diff-line.removed {{ background-color: #ffeef0; }}
+        .diff-line.context {{ background-color: #fff; }}
+        .diff-line:hover {{ background-color: rgba(255, 212, 59, 0.1); }}
+        .line-marker {{ 
+            display: inline-block; 
+            width: 20px; 
+            text-align: center; 
+            color: rgba(27, 31, 35, 0.3); 
+            user-select: none; 
+            flex-shrink: 0;
+            padding: 0 8px;
+        }}
+        .diff-line.added .line-marker {{ color: #28a745; font-weight: bold; }}
+        .diff-line.removed .line-marker {{ color: #d73a49; font-weight: bold; }}
+        .line-content {{ 
+            flex: 1; 
+            padding: 0 8px; 
+            word-break: break-all; 
+            white-space: pre-wrap;
+        }}
+        .hunk-header {{ 
+            background-color: #f1f8ff; 
+            color: rgba(27, 31, 35, 0.7); 
+            padding: 8px 16px; 
+            border-bottom: 1px solid #c6cbd1;
+            font-weight: bold;
+        }}
+        .no-diff, .no-changes-diff {{ 
+            text-align: center; 
+            color: #6c757d; 
+            padding: 40px; 
+            font-style: italic; 
+        }}
+        .diff-error {{ 
+            background-color: #ffeef0; 
+            border: 1px solid #f97583; 
+            color: #d73a49; 
+            padding: 16px; 
+            border-radius: 6px; 
+            margin: 20px 0; 
+        }}
+        .diff-stats {{ 
+            background-color: #f6f8fa; 
+            border: 1px solid #d1d9e0; 
+            border-radius: 6px; 
+            padding: 16px; 
+            margin: 20px 0; 
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; 
+            font-size: 12px; 
+        }}
+        .file-header {{ 
+            background-color: #f6f8fa; 
+            border-bottom: 1px solid #d1d9e0; 
+            padding: 8px 16px; 
+            font-weight: bold; 
+            color: #24292e; 
+        }}
     </style>
 </head>
 <body>
@@ -2561,6 +2768,18 @@ class F5CertificateCleanup:
                     <div class="timestamp">Post-cleanup: {post_timestamp} ({post_size:,} chars)</div>
                     <div class="timestamp">Configuration method: {config_method}</div>
                 </div>
+            </div>
+            
+        """
+        
+        # Add running config diff section
+        html_content += f"""
+            <div class="section">
+                <h3>📄 Running Configuration Changes</h3>
+                <div class="file-header">
+                    F5 Running Configuration Diff (show running-config)
+                </div>
+                {running_config_diff}
             </div>
         """
         
