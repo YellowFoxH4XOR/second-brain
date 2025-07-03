@@ -1,0 +1,94 @@
+Certificate Cleanup on F5 BIG-IP v17 Using Python and iControl REST
+
+F5 BIG‑IP Certificate Cleanup (v17, Python/iControl REST)
+We will use the iControl REST API (via Python) to identify, detach, and remove expired SSL certificates on the F5 BIG‑IP (v17) without causing outages. The procedure covers both LTM and GTM contexts. In summary, we will: (a) list all certificates and filter those whose expirationDate is past datetime.now(), (b) check if each expired cert is unused or in use, and (c) if in use, update the referencing object (profile/monitor) to the built‑in default cert before deleting the old one. Throughout, we verify service status (e.g. pool/member health) to avoid interrupting active traffic.
+1. Identify Expired Certificates
+List certificates via iControl REST: Use the endpoint GET /mgmt/tm/sys/file/ssl-cert to retrieve all SSL certificate file objects on the BIG‑IP. Each item includes an expirationDate property (epoch)
+clouddocs.f5.com
+.
+Find expired ones: In Python, parse the JSON response and compare each certificate’s expirationDate to the current datetime. Any with expiration ≤ now are expired. (For example, in Python you might convert the returned UNIX time to a Python datetime and filter.)
+Citation: The iControl REST object tm:sys:file:ssl-cert contains expirationDate
+clouddocs.f5.com
+, which can be checked against the current time to detect expired certs.
+Example API call:
+shell
+Copy
+Edit
+curl -sk -u user:pass https://BIGIP/mgmt/tm/sys/file/ssl-cert
+This returns JSON of all certs, including "name" and "expirationDate". Parse this to list expired certificates.
+2. Check Certificate Usage in Configuration
+For each expired certificate, determine if it is referenced by any LTM or GTM object. Common references include SSL profiles (client-ssl, server-ssl) and HTTPS monitors.
+LTM SSL profiles:
+Client SSL (client-ssl): List all client-side SSL profiles with GET /mgmt/tm/ltm/profile/client-ssl. Each profile’s JSON contains a certKeyChain array with objects { cert, key, chain } as used certificates
+loadbalancing.se
+. Check if the expired cert’s name (e.g. /Common/expired.crt) appears in any certKeyChain.cert entry.
+Server SSL (server-ssl): List server-side SSL profiles with GET /mgmt/tm/ltm/profile/server-ssl. Each profile has cert and key fields
+clouddocs.f5.com
+. If a profile’s "cert": "/Common/expired.crt", then it is using the expired cert.
+Citation: In the API reference, the server-ssl profile has a cert property for the server certificate
+clouddocs.f5.com
+. The client-ssl profile example shows a certKeyChain containing the certificate path
+loadbalancing.se
+.
+LTM Monitors (HTTPS): Some health monitors send a client certificate to the target. Query GET /mgmt/tm/ltm/monitor/https. The monitor object has a "cert" property (file object name) for the client cert
+clouddocs.f5.com
+. If this equals the expired cert, the monitor is using it.
+GTM Monitors (HTTPS): Global Traffic Manager HTTPS monitors similarly have a "cert" field
+clouddocs.f5.com
+. Use GET /mgmt/tm/gtm/monitor/https to list them and check for the expired cert name in the cert field.
+Other references: Check any other relevant objects (virtual servers, SNATs, iRules, etc.) for references. (Virtual servers themselves typically use SSL profiles, so covering profiles handles most cases.)
+In Python, you could iterate the above APIs and record which objects use each expired certificate. If no references are found, the cert is unused.
+3. Safe Removal of Unused Expired Certificates
+If unused: Simply delete the certificate. Use DELETE /mgmt/tm/sys/file/ssl-cert/{certName}, where {certName} is the cert’s name (e.g. ~Common~expired.crt)
+clouddocs.f5.com
+. This immediately removes the certificate from the device.
+Citation: The iControl REST reference shows that DELETE is a valid method on the tm:sys:file:ssl-cert resource
+clouddocs.f5.com
+.
+Precaution: Before deleting, ensure you have backups or version control for the cert if needed. But as it’s expired and unused, removal is safe.
+4. Handling Expired Certificates In Use
+For expired certs that are in use, we must replace them in-place and only remove them after detaching. Steps for each such certificate:
+Check related service status: Identify the BIG-IP objects using the cert (SSL profiles, monitors, etc.) and then check the health/status of the service. For example, if a server-ssl profile is attached to a Virtual Server with a pool, verify that the pool is (currently) down or that the VS is disabled. You can use iControl REST on status endpoints: e.g. GET /mgmt/tm/ltm/pool/{poolName}/members/stats or GET /mgmt/tm/ltm/virtual/{vsName}/stats
+loadbalancing.se
+. If the service is already down (no active members), it is safe to update. (If the service is still up, consider scheduling maintenance, as replacing a certificate on an active SSL profile will briefly interrupt SSL connections.)
+Citation: For example, the REST API for pool stats (/mgmt/tm/ltm/pool/stats) can show each member’s status
+loadbalancing.se
+, allowing you to confirm if a pool or VS is offline before proceeding.
+Update the BIG-IP object to use the default certificate:
+Default certificate: BIG-IP has a built-in certificate /Common/default.crt (and key /Common/default.key). Using this avoids custom trust issues. For example, to replace a server-ssl profile’s cert, do a REST PATCH or PUT on /mgmt/tm/ltm/profile/server-ssl/{profileName} with JSON like {"cert":"/Common/default.crt","key":"/Common/default.key"}
+clouddocs.f5.com
+. This reassigns the profile to the default cert.
+Client SSL profiles: Update similarly, using the certKeyChain field. For instance, {"certKeyChain":[{"cert":"/Common/default.crt","key":"/Common/default.key","name":"default"}]}. This sets the profile to use /Common/default.crt. (The name can be any label.) The Balanced example shows this structure for client-ssl profiles
+loadbalancing.se
+.
+Monitors: If an HTTPS monitor was using the expired cert, update its cert or trustCA field to default. For example, set "cert": "/Common/default.crt" and matching key in /mgmt/tm/ltm/monitor/https/{monName}.
+After patching, the object now refers only to the default certificate. This detaches the expired cert.
+Verify replacement: Ensure the object still functions with the default cert. For SSL profiles, you may test an SSL handshake. For monitors, run the monitor or check node status again. The built-in default cert is typically trusted, but verify connectivity.
+Delete the expired cert: Now that it’s not referenced, delete it via DELETE /mgmt/tm/sys/file/ssl-cert/{certName}
+clouddocs.f5.com
+. Because all references were replaced with default, this will not break any remaining configuration.
+5. GTM Certificates
+Repeat analogous steps for GTM context:
+GTM SSL Profiles: If the BIG-IP is running DNS/GSLB (GTM) with SSL profiles (e.g. for LDAP or DNS over TLS), check GTM SSL profile objects. (These are less common.) Use GET /mgmt/tm/gtm/ssl-profile/... if applicable and replace certs as above.
+GTM Monitors: We already noted HTTPS monitors under GTM (/gtm/monitor/https)
+clouddocs.f5.com
+. Update any expired cert references there to /Common/default.crt similarly, after verifying the target is down or testable, then delete the cert.
+Wide IP/Server SSL: If GSLB Virtual Servers use client-ssl/server-ssl profiles, treat them like LTM profiles.
+6. Final Verification
+Check for any remaining references: After deletion, do a final scan for the certificate name in all relevant objects (profiles, monitors, iRules, SSL bridges, etc.) to ensure it’s fully removed.
+Validate services: Confirm that all Virtual Servers, pools, and monitors are operational with the default cert. If any issues, you can re-import the certificate and reassign.
+Cleanup: Optionally purge any older keys corresponding to deleted certs (via DELETE /mgmt/tm/sys/file/ssl-key if keys are unused) and reload config if necessary (though REST changes apply immediately).
+By following these steps, all expired and unused certificates can be safely removed without impacting active services. The key steps are (a) detecting expiry via the certificate endpoint
+clouddocs.f5.com
+, (b) finding usage by inspecting SSL profiles and monitors (whose API schemas include cert fields
+clouddocs.f5.com
+clouddocs.f5.com
+), and (c) reassigning to the built-in default cert before deletion. Sources: F5 iControl REST API reference for SSL certificates, SSL profiles, and monitors
+clouddocs.f5.com
+clouddocs.f5.com
+clouddocs.f5.com
+clouddocs.f5.com
+; example REST usage from F5 community and documentation
+loadbalancing.se
+loadbalancing.se
+.
