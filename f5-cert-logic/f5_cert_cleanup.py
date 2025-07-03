@@ -2090,7 +2090,7 @@ class F5CertificateCleanup:
     
     def get_running_config(self) -> Dict[str, any]:
         """
-        Get the current running configuration from the F5 device
+        Get the current running configuration from the F5 device using show running-config command
         
         Returns:
             Dictionary containing the running configuration
@@ -2098,17 +2098,23 @@ class F5CertificateCleanup:
         try:
             print("📥 Retrieving running configuration...")
             
-            # Get the current running configuration
-            response = self._make_request('GET', '/mgmt/tm/sys/config')
+            # Use F5's command execution API to run 'show running-config'
+            command_data = {
+                "command": "run",
+                "utilCmdArgs": "-c 'show running-config'"
+            }
             
-            # Extract the configuration text
-            config_data = response.json()
+            response = self._make_request('POST', '/mgmt/tm/util/bash', json=command_data)
+            result = response.json()
             
-            # Also get key configuration sections for detailed tracking
+            # Extract the command output
+            raw_config_text = result.get('commandResult', '')
+            
+            # Create comprehensive configuration snapshot
             sections = {
                 'timestamp': datetime.datetime.now().isoformat(),
                 'device_hostname': self.original_host,
-                'raw_config': config_data,
+                'raw_config_text': raw_config_text,
                 'ssl_profiles': {},
                 'monitors': {},
                 'certificates': {},
@@ -2116,18 +2122,20 @@ class F5CertificateCleanup:
                 'gtm_objects': {}
             }
             
-            # Get SSL profiles
+            # Get SSL profiles for detailed tracking
             try:
                 client_ssl_response = self._make_request('GET', '/mgmt/tm/ltm/profile/client-ssl')
                 sections['ssl_profiles']['client_ssl'] = client_ssl_response.json().get('items', [])
             except Exception as e:
                 print(f"  ⚠️  Warning: Could not retrieve Client-SSL profiles: {e}")
+                sections['ssl_profiles']['client_ssl'] = []
             
             try:
                 server_ssl_response = self._make_request('GET', '/mgmt/tm/ltm/profile/server-ssl')
                 sections['ssl_profiles']['server_ssl'] = server_ssl_response.json().get('items', [])
             except Exception as e:
                 print(f"  ⚠️  Warning: Could not retrieve Server-SSL profiles: {e}")
+                sections['ssl_profiles']['server_ssl'] = []
             
             # Get monitors
             try:
@@ -2135,6 +2143,7 @@ class F5CertificateCleanup:
                 sections['monitors']['ltm_https'] = ltm_monitors_response.json().get('items', [])
             except Exception as e:
                 print(f"  ⚠️  Warning: Could not retrieve LTM HTTPS monitors: {e}")
+                sections['monitors']['ltm_https'] = []
             
             if self.is_gtm_available():
                 try:
@@ -2142,6 +2151,9 @@ class F5CertificateCleanup:
                     sections['monitors']['gtm_https'] = gtm_monitors_response.json().get('items', [])
                 except Exception as e:
                     print(f"  ⚠️  Warning: Could not retrieve GTM HTTPS monitors: {e}")
+                    sections['monitors']['gtm_https'] = []
+            else:
+                sections['monitors']['gtm_https'] = []
             
             # Get certificates
             try:
@@ -2149,20 +2161,81 @@ class F5CertificateCleanup:
                 sections['certificates'] = certs_response.json().get('items', [])
             except Exception as e:
                 print(f"  ⚠️  Warning: Could not retrieve SSL certificates: {e}")
+                sections['certificates'] = []
             
-            # Get Virtual Servers (sample from Common partition)
+            # Get Virtual Servers from all partitions
             try:
-                vs_response = self._make_request('GET', '/mgmt/tm/ltm/virtual?$filter=partition eq Common')
-                sections['virtual_servers'] = vs_response.json().get('items', [])
+                partitions = self.discover_partitions()
+                all_virtual_servers = []
+                for partition in partitions:
+                    try:
+                        vs_response = self._make_request('GET', f'/mgmt/tm/ltm/virtual?$filter=partition eq {partition}')
+                        partition_vs = vs_response.json().get('items', [])
+                        all_virtual_servers.extend(partition_vs)
+                    except Exception as e:
+                        print(f"  ⚠️  Warning: Could not retrieve Virtual Servers from partition {partition}: {e}")
+                sections['virtual_servers'] = all_virtual_servers
             except Exception as e:
                 print(f"  ⚠️  Warning: Could not retrieve Virtual Servers: {e}")
+                sections['virtual_servers'] = []
             
-            print(f"✅ Running configuration retrieved successfully")
+            # Calculate configuration size for validation
+            config_size = len(raw_config_text) if raw_config_text else 0
+            sections['config_size'] = config_size
+            
+            if config_size > 0:
+                print(f"✅ Running configuration retrieved successfully ({config_size:,} characters)")
+            else:
+                print(f"⚠️  Warning: Running configuration appears to be empty")
+            
             return sections
             
         except Exception as e:
             print(f"❌ Failed to retrieve running configuration: {e}")
-            return {'error': str(e), 'timestamp': datetime.datetime.now().isoformat()}
+            print(f"   Trying fallback method...")
+            
+            # Fallback: Try alternative command execution method
+            try:
+                # Alternative method using tmsh command
+                command_data = {
+                    "command": "run",
+                    "utilCmdArgs": "-c 'tmsh show running-config'"
+                }
+                
+                response = self._make_request('POST', '/mgmt/tm/util/bash', json=command_data)
+                result = response.json()
+                raw_config_text = result.get('commandResult', '')
+                
+                if raw_config_text:
+                    print(f"✅ Running configuration retrieved using fallback method")
+                    return {
+                        'timestamp': datetime.datetime.now().isoformat(),
+                        'device_hostname': self.original_host,
+                        'raw_config_text': raw_config_text,
+                        'config_size': len(raw_config_text),
+                        'method': 'fallback_tmsh',
+                        'ssl_profiles': {'client_ssl': [], 'server_ssl': []},
+                        'monitors': {'ltm_https': [], 'gtm_https': []},
+                        'certificates': [],
+                        'virtual_servers': []
+                    }
+                else:
+                    raise Exception("Fallback method also returned empty configuration")
+                    
+            except Exception as fallback_error:
+                print(f"❌ Fallback method also failed: {fallback_error}")
+                return {
+                    'error': str(e), 
+                    'fallback_error': str(fallback_error),
+                    'timestamp': datetime.datetime.now().isoformat(),
+                    'device_hostname': self.original_host,
+                    'raw_config_text': '',
+                    'config_size': 0,
+                    'ssl_profiles': {'client_ssl': [], 'server_ssl': []},
+                    'monitors': {'ltm_https': [], 'gtm_https': []},
+                    'certificates': [],
+                    'virtual_servers': []
+                }
     
     def save_running_config(self, config: Dict[str, any], filename: str = None) -> str:
         """
@@ -2181,6 +2254,19 @@ class F5CertificateCleanup:
                 device_ip = self.original_host.replace('https://', '').replace('http://', '').replace(':', '_').replace('.', '_')
                 timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                 filename = f"config_{device_ip}_{timestamp}.json"
+            
+            # Check if configuration contains error
+            if 'error' in config:
+                print(f"⚠️  Warning: Configuration contains error information")
+                if 'raw_config_text' not in config or not config['raw_config_text']:
+                    print(f"⚠️  Warning: No configuration text retrieved")
+            else:
+                # Validate configuration size
+                config_size = config.get('config_size', 0)
+                if config_size == 0:
+                    print(f"⚠️  Warning: Configuration appears to be empty")
+                else:
+                    print(f"ℹ️  Configuration size: {config_size:,} characters")
             
             # Save configuration to file
             with open(filename, 'w', encoding='utf-8') as f:
@@ -2404,6 +2490,11 @@ class F5CertificateCleanup:
         pre_timestamp = pre_config.get('timestamp', 'Unknown')
         post_timestamp = post_config.get('timestamp', 'Unknown')
         
+        # Configuration size information
+        pre_size = pre_config.get('config_size', 0)
+        post_size = post_config.get('config_size', 0)
+        config_method = pre_config.get('method', 'standard')
+        
         html_content = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -2466,8 +2557,9 @@ class F5CertificateCleanup:
                     </div>
                 </div>
                 <div style="margin-top: 20px;">
-                    <div class="timestamp">Pre-cleanup: {pre_timestamp}</div>
-                    <div class="timestamp">Post-cleanup: {post_timestamp}</div>
+                    <div class="timestamp">Pre-cleanup: {pre_timestamp} ({pre_size:,} chars)</div>
+                    <div class="timestamp">Post-cleanup: {post_timestamp} ({post_size:,} chars)</div>
+                    <div class="timestamp">Configuration method: {config_method}</div>
                 </div>
             </div>
         """

@@ -71,10 +71,11 @@ Before dereferencing certificates from GTM HTTPS monitors, the script:
 
 ### Pre/Post Configuration Checks 📋
 Before and after any cleanup operations, the script automatically:
-- ✅ Captures complete F5 running configuration
-- ✅ Saves configuration snapshots with timestamps
-- ✅ Tracks SSL profiles, monitors, certificates, and Virtual Servers
+- ✅ Captures complete F5 running configuration using `show running-config` command
+- ✅ Saves configuration snapshots with timestamps in JSON format
+- ✅ Tracks SSL profiles, monitors, certificates, and Virtual Servers via REST API
 - ✅ Generates detailed HTML diff reports showing all changes
+- ✅ Includes fallback methods for different F5 software versions
 
 ### Configuration Diff Report 📊
 The `diff_{device_ip}.html` report provides:
@@ -83,6 +84,18 @@ The `diff_{device_ip}.html` report provides:
 - **SSL Profiles Modified**: Before/after comparison of certificate assignments
 - **Monitors Updated**: Changes to HTTPS monitor certificate references
 - **Visual Diff Display**: Color-coded before/after comparisons
+
+### Technical Implementation 🔧
+**Command-Based Configuration Retrieval**
+- **Primary method**: Uses F5's `/mgmt/tm/util/bash` API to execute `show running-config`
+- **Fallback method**: Uses `tmsh show running-config` for compatibility with different F5 versions
+- **Problem solved**: Resolves REST API limitations and 400 client errors from `/mgmt/tm/sys/config`
+- **Validation**: Checks configuration size and provides detailed error handling
+
+**Hybrid Data Collection Approach**
+- **Running configuration**: Retrieved via command execution for complete text-based config
+- **Object details**: Retrieved via REST API for structured analysis and comparison
+- **Best of both**: Combines reliable configuration capture with detailed object analysis
 
 ### Enhanced Workflow 🔄
 ```
@@ -380,7 +393,10 @@ The script checks certificate usage in:
 
 🔍 Pre-cleanup configuration check...
 📥 Retrieving running configuration...
-✅ Running configuration retrieved successfully
+  ⚠️  Warning: Could not retrieve Client-SSL profiles: [Details if any issues]
+  ⚠️  Warning: Could not retrieve Server-SSL profiles: [Details if any issues]
+✅ Running configuration retrieved successfully (45,234 characters)
+ℹ️  Configuration size: 45,234 characters
 💾 Running configuration saved to: config_192_168_1_100_20241215_143022.json
 
 ⚠️  This will delete 4 expired certificate(s)
