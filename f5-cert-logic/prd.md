@@ -1,253 +1,202 @@
-Product Requirements Document: F5 BIG-IP Expired Certificate Cleanup Utility (API Edition)
-Document Version
+# Certificate Cleanup on F5 BIG-IP v17 Using Python and iControl REST
 
-2.1
+This guide walks through identifying, detaching, and removing **expired SSL certificates** on an F5 BIG-IP (v17) device using the iControl REST API and Python. The procedure covers both LTM and GTM contexts and is designed to avoid service interruptions.
 
-Status
+---
 
-Final
+## 1. Identify Expired Certificates
 
-Author
+1. **List all certificates**
+   * Endpoint: `GET /mgmt/tm/sys/file/ssl-cert`
+   * Each certificate object includes an `expirationDate` (epoch timestamp).
 
-Gemini AI
+2. **Filter expired certificates**
+   * Parse the JSON response with Python and compare `expirationDate` to `datetime.now()`.
+   * Any certificate whose `expirationDate ≤ now` is considered **expired**.
 
-Date
+```python
+import requests, datetime, urllib3, json
+urllib3.disable_warnings()
 
-June 20, 2025
+BIGIP = "https://BIGIP"
+creds = ("user", "pass")
 
-Stakeholders
+resp = requests.get(f"{BIGIP}/mgmt/tm/sys/file/ssl-cert", auth=creds, verify=False)
+resp.raise_for_status()
+
+expired = []
+for cert in resp.json()["items"]:
+    exp = datetime.datetime.fromtimestamp(cert["expirationDate"])
+    if exp <= datetime.datetime.now():
+        expired.append(cert["name"])
 
-Network Operations, Security Engineering, IT Compliance, Automation Team
+print("Expired certs:", json.dumps(expired, indent=2))
+```
 
-1. Introduction
-Managing the lifecycle of SSL/TLS certificates on F5 BIG-IP devices is a critical operational task. The accumulation of expired certificates creates security risks, audit failures, and administrative clutter. Manually identifying, verifying, and cleaning up these certificates is time-consuming, prone to human error, and can lead to service disruptions if an in-use certificate is accidentally deleted.
+> ℹ️  The iControl REST object `tm:sys:file:ssl-cert` exposes `expirationDate` ([docs](https://clouddocs.f5.com)).
 
-This document outlines the requirements for an automated F5 BIG-IP Expired Certificate Cleanup Utility. This command-line tool will leverage the F5 iControl REST API to safely identify, classify, and process expired certificates, automating the entire cleanup workflow while prioritizing safety through comprehensive checks, backups, and detailed logging.
+---
 
-2. Goals and Objectives
-Improve Security Posture: Systematically remove unused and expired certificates that could be potential attack vectors.
+## 2. Check Certificate Usage in Configuration
 
-Enhance Operational Efficiency: Drastically reduce the manual effort and time required for certificate management.
+For each **expired certificate**, determine whether it is referenced by any LTM or GTM object.
 
-Prevent Service Outages: Eliminate the risk of accidentally deleting an expired certificate that is still in use by an active configuration object.
+| Object Type | API Endpoint | Field(s) to Inspect |
+|-------------|-------------|----------------------|
+| **Client-SSL profile** | `GET /mgmt/tm/ltm/profile/client-ssl` | `certKeyChain[].cert` |
+| **Server-SSL profile** | `GET /mgmt/tm/ltm/profile/server-ssl` | `cert`, `key` |
+| **LTM HTTPS monitor** | `GET /mgmt/tm/ltm/monitor/https` | `cert` |
+| **GTM HTTPS monitor** | `GET /mgmt/tm/gtm/monitor/https` | `cert` |
+| **OCSP responder** | `GET /mgmt/tm/sys/crypto/cert-validator/ocsp` | `trustedResponders` |
+| **APM authentication** | `GET /mgmt/tm/apm/profile/authentication` | `cert`, `trustedCAs` |
+| **LDAP servers** | `GET /mgmt/tm/auth/ldap` | `sslCaCertFile`, `sslClientCert` |
+| **RADIUS servers** | `GET /mgmt/tm/auth/radius-server` | `server.sslCaCertFile` |
+| **Syslog destinations** | `GET /mgmt/tm/sys/syslog` | `remotesyslog.cert` |
 
-Ensure Audit Compliance: Provide clear, auditable logs of all actions taken, demonstrating proper certificate lifecycle management.
+> If the expired certificate's name (e.g. `/Common/expired.crt`) appears in any of these fields, the certificate is **in use**.
 
-Promote Modern Automation: Build a tool that aligns with Infrastructure-as-Code (IaC) principles and can be integrated into larger automation frameworks.
+---
 
-3. Scope
-3.1. In-Scope
-Securely connect to a target F5 BIG-IP device's iControl REST API over HTTPS.
+## 3. Safe Removal of Unused Expired Certificates
 
-Discover all non-default SSL certificates and their corresponding keys via API calls.
+If an expired certificate is **not referenced** anywhere:
 
-Analyze each certificate to determine if it is expired based on the current system date.
+```bash
+curl -sk -u user:pass \
+  -X DELETE "https://BIGIP/mgmt/tm/sys/file/ssl-cert/{certName}"
+```
 
-For each expired certificate, perform a comprehensive check by querying all relevant API endpoints to determine if it is actively referenced by any object.
+Replace `{certName}` with the certificate's object name (e.g. `~Common~expired.crt`). Deletion is immediate.
 
-Action Logic (via API):
+> **Recommended staged deletion**  
+> To add an extra safety-net, first **disable** the certificate object via iControl REST, wait one monitoring cycle, then delete:
+>
+> ```bash
+> # Quarantine the cert (sets enabled=false)
+> curl -sk -u user:pass \
+>   -X PATCH \
+>   -H "Content-Type: application/json" \
+>   -d '{"enabled":false}' \
+>   "https://BIGIP/mgmt/tm/sys/file/ssl-cert/{certName}"
+>
+> # — wait 5-10 minutes, watch /var/log/ltm for SSL alerts —
+>
+> # Permanently remove the cert
+> curl -sk -u user:pass \
+>   -X DELETE "https://BIGIP/mgmt/tm/sys/file/ssl-cert/{certName}"
+> ```
+>
+> This two-step "quarantine then purge" approach mirrors the guidance in F5 KB [K55918586](https://my.f5.com/manage/s/article/K55918586).
 
-If a certificate is expired and not in use, the utility shall back it up and then delete it from the BIG-IP.
+---
 
-If a certificate is expired but still in use, the utility shall "flag" the certificate by modifying its description on the BIG-IP and report it, taking no destructive action.
+## 4. Handling Expired Certificates *In Use*
 
-Create a detailed, timestamped log file of all findings and actions.
+For certificates that **are in use**, follow these steps **per certificate**:
 
-Provide a "Dry Run" mode that reports on what actions would be taken without making any actual changes to the system.
+1. **Verify service status** 
+   * Check the health of related objects (virtual servers, pools) via stats endpoints, e.g. `GET /mgmt/tm/ltm/virtual/{vsName}/stats`.
+   * Proceed during a maintenance window if services are active.
 
-3.2. Out-of-Scope
-A graphical user interface (GUI).
+2. **Replace the certificate with the built-in default**
 
-Automatic renewal or issuance of certificates.
+   **Example – Server-SSL profile**
 
-Direct interaction with the BIG-IP via SSH/TMSH. The utility will be API-only.
+```json
+PATCH /mgmt/tm/ltm/profile/server-ssl/{profileName}
+{
+  "cert": "/Common/default.crt",
+  "key":  "/Common/default.key"
+}
+```
 
-Management of certificates on devices other than F5 BIG-IP.
+   **Example – Client-SSL profile**
 
-4. API Endpoint Reference
-The utility will use the following iControl REST API endpoints to perform its functions.
+```json
+PATCH /mgmt/tm/ltm/profile/client-ssl/{profileName}
+{
+  "certKeyChain": [
+    {
+      "name": "default",
+      "cert": "/Common/default.crt",
+      "key":  "/Common/default.key"
+    }
+  ]
+}
+```
 
-Function
+3. **Update monitors** similarly, setting their `cert` (and `key`/`trustCA` if applicable) to `/Common/default.crt`.
 
-HTTP Method
+4. **Validate functionality**
+   * Test SSL handshakes or monitor health to ensure objects work with the default certificate.
 
-Endpoint
+5. **Delete the expired certificate** once it is no longer referenced (see Step&nbsp;3).
 
-Discovery
+---
 
+## 5. GTM Certificates
 
+Apply the same logic to GTM-specific objects:
 
+* **GTM SSL profiles** (if present): `GET /mgmt/tm/gtm/ssl-profile/...`
+* **GTM HTTPS monitors**: `GET /mgmt/tm/gtm/monitor/https`
 
+Replace expired certificates with `/Common/default.crt`, verify operation, then delete.
 
-List All Certificates
+---
 
-GET
+## 6. Final Verification
 
-/mgmt/tm/sys/file/ssl-cert
+1. **Search for lingering references** to the deleted certificate names across all profiles, monitors, and iRules.
+2. **Validate services**: Confirm that virtual servers, pools, and monitors are healthy.
+3. **Cleanup keys**: Optionally remove unused SSL keys via `DELETE /mgmt/tm/sys/file/ssl-key/{keyName}`.
 
-Get Certificate Details
+---
 
-GET
+### Sources & Further Reading
 
-/mgmt/tm/sys/file/ssl-cert/~[partition]~[cert_name]
+* F5 iControl REST API Reference – [SSL certificates](https://clouddocs.f5.com)
+* F5 iControl REST API Reference – [Client-SSL profiles](https://clouddocs.f5.com)
+* F5 iControl REST API Reference – [Server-SSL profiles](https://clouddocs.f5.com)
+* F5 iControl REST API Reference – [LTM/GTM monitors](https://clouddocs.f5.com)
+* Community examples – [loadbalancing.se](https://loadbalancing.se)
 
-List All Keys
+---
 
-GET
+## 7. Batch Processing (Multiple Devices)
 
-/mgmt/tm/sys/file/ssl-key
+For enterprise environments with multiple F5 devices, the script supports batch processing via CSV input:
 
-Usage Verification
+1. **Create devices.csv file**
+   ```csv
+   hostname,ip,username,password
+   bigip-prod-01,192.168.1.100,admin,
+   bigip-prod-02,192.168.1.101,admin,
+   bigip-dev-01,192.168.1.200,testuser,testpass
+   ```
 
+2. **Execute batch processing**
+   ```bash
+   python f5_cert_cleanup.py --devices-csv devices.csv --username admin --report-only
+   ```
 
+3. **Review batch report**
+   * Generates `f5_batch_cert_cleanup_report.html` with consolidated results
+   * Shows per-device status, connection success/failure, and certificate summaries
+   * Provides enterprise-wide certificate cleanup overview
 
+4. **Batch cleanup execution**
+   * Interactive confirmation per device with expired certificates
+   * Options: `yes` (proceed), `no` (cancel), `skip` (skip this device)
+   * Continues processing remaining devices after failures
 
+**Batch Processing Benefits:**
+- **Centralized Management**: Single command processes entire F5 infrastructure
+- **Comprehensive Reporting**: Enterprise-wide certificate status overview
+- **Resilient Operation**: Continues processing despite individual device failures
+- **Flexible Authentication**: Supports device-specific or shared credentials
+- **Risk Mitigation**: Per-device confirmation prevents mass accidental deletion
 
-Check Client SSL Profiles
+---
 
-GET
-
-/mgmt/tm/ltm/profile/client-ssl
-
-Check Server SSL Profiles
-
-GET
-
-/mgmt/tm/ltm/profile/server-ssl
-
-Check HTTPS Monitors
-
-GET
-
-/mgmt/tm/ltm/monitor/https
-
-Check Auth Profiles
-
-GET
-
-/mgmt/tm/ltm/auth/ssl-cc-ldap
-
-Check APM Policies
-
-GET
-
-/mgmt/tm/apm/profile/access
-
-Actions
-
-
-
-
-
-Flag Certificate
-
-PATCH
-
-/mgmt/tm/sys/file/ssl-cert/~[partition]~[cert_name]
-
-Delete Certificate
-
-DELETE
-
-/mgmt/tm/sys/file/ssl-cert/~[partition]~[cert_name]
-
-Delete Key
-
-DELETE
-
-/mgmt/tm/sys/file/ssl-key/~[partition]~[key_name]
-
-5. Functional Requirements
-ID
-
-Requirement
-
-Details
-
-FR-1
-
-Secure API Connectivity
-
-The utility must connect to the target BIG-IP's REST API over HTTPS (port 443). It shall use Basic Authentication (user/password) or Token-Based Authentication. Credentials must not be stored in plain text.
-
-FR-2
-
-API-Based Discovery
-
-The utility shall use the GET /mgmt/tm/sys/file/ssl-cert endpoint to enumerate all certificates and their properties.
-
-FR-3
-
-Expiration Analysis
-
-The utility must accurately parse the expirationString field from the JSON response for each certificate and compare it against the current date to determine if it has expired.
-
-FR-4
-
-API-Based Usage Verification
-
-For any expired certificate, the utility must query all endpoints listed in the "Usage Verification" table (Section 4) and parse the JSON responses to check for any references to the certificate's name.
-
-FR-5
-
-Certificate Backup
-
-Before deleting a certificate, the utility must back it up. The API-based backup process is detailed in Section 7.
-
-FR-6
-
-API Deletion
-
-If a certificate is confirmed to be expired AND unused, the utility shall issue DELETE requests to the appropriate ssl-cert and ssl-key endpoints.
-
-FR-7
-
-API Flagging
-
-If a certificate is expired BUT in use, the utility shall issue a PATCH request to the certificate's endpoint with a JSON body to update its description: {"description": "FLAGGED: EXPIRED BUT IN USE - INVESTIGATE URGENTLY"}.
-
-FR-8
-
-Detailed Logging
-
-The utility must generate a human-readable log file for each run, detailing all API calls made, findings, and actions taken.
-
-FR-9
-
-Execution Modes
-
-The utility must support two execution modes: 
- • --dry-run: Reports all findings and intended actions without making DELETE or PATCH calls. 
- • --execute: Performs all backup, deletion, and flagging operations.
-
-FR-10
-
-API Pre-run Checks
-
-The utility should perform a pre-run check to confirm API connectivity to the target device (e.g., by querying /mgmt/tm/sys/clock) and that the credentials provided result in a 200 OK response.
-
-6. Backup Mechanism Details (API Method)
-The API-based backup process is a critical safety net.
-
-Backup Location: A local directory on the machine running the utility (e.g., ./f5_cert_backups/).
-
-Run-Specific Subdirectory: A new subdirectory shall be created for each execution, named with a timestamp (e.g., ./f5_cert_backups/2025-06-20_07-57-00/).
-
-File Backup Process: Before a certificate is deleted, the utility will:
-
-Make a GET request to that specific certificate's endpoint (e.g., /mgmt/tm/sys/file/ssl-cert/~Common~my-cert.crt).
-
-Extract the value of the certificateText field from the JSON response.
-
-Save this content locally to a file with the original name (e.g., my-cert.crt) inside the run-specific backup directory.
-
-Log the name of the corresponding key that will be deleted. Note: The private key content is not exposed via the REST API for security reasons. The backup consists of the public certificate and a record of the associated key's deletion.
-
-7. Assumptions and Dependencies
-The utility will be run from a machine with HTTPS network access to the F5 BIG-IP management interface.
-
-The user account for the API has sufficient permissions (e.g., Administrator or a custom role with full access to LTM, SYS, and APM objects).
-
-The target F5 BIG-IP device is running a version of TMOS that supports the iControl REST API (v11.5+).
-
-The utility will be developed in a language with robust HTTP and JSON processing capabilities (e.g., Python, Go, PowerShell).
+By following these steps, you can safely remove expired and unused certificates from single or multiple BIG-IP devices without disrupting active traffic. 
