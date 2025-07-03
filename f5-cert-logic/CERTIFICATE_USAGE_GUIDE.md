@@ -89,6 +89,90 @@ Based on the [F5 Community documentation](https://community.f5.com/kb/technicala
 - **Impact if Expired**: Log transmission failures, audit trail gaps
 - **Replacement Strategy**: Logging continues with default certificate
 
+## 🚨 Safety Checks: Service Impact Prevention
+
+### **Virtual Server Protection** 🌐
+Before dereferencing certificates from SSL profiles, the script automatically checks:
+
+- **Client-SSL Profiles**: Validates that no active Virtual Servers are using the profile
+- **Server-SSL Profiles**: Validates that no active Virtual Servers are using the profile
+
+**Safety Logic**:
+1. **Discovery**: Finds all Virtual Servers across all partitions using the SSL profile
+2. **Status Check**: Verifies each Virtual Server's `enabled` and `available` status
+3. **Protection**: Blocks dereferencing if ANY Virtual Server is both enabled AND available
+4. **Recommendation**: Provides guidance for maintenance window procedures
+
+**Example Output**:
+```
+  🔄 Dereferencing from Client-SSL Profile: prod-ssl-profile (partition: Production)
+    🔍 Checking Virtual Servers using Client-SSL Profile: prod-ssl-profile
+    📊 Found 2 Virtual Server(s) using this SSL profile
+      ⚠️  Virtual Server web-app-vs is ACTIVE (enabled: True, available: True)
+      ✅ Virtual Server test-vs is inactive (enabled: False, available: False)
+    🛑 ABORTED: 1 active Virtual Server(s) found. Dereferencing blocked to prevent service impact.
+    💡 Recommendation: Disable affected Virtual Servers during maintenance window before retrying.
+```
+
+### **GTM Object Protection** 🌍
+Before dereferencing certificates from GTM HTTPS monitors, the script automatically checks:
+
+- **GTM Pools**: Validates that no active GTM pools are using the monitor
+- **GTM Wide IPs**: Validates that no active Wide IPs reference pools using the monitor
+
+**Safety Logic**:
+1. **Discovery**: Finds all GTM pools (A, AAAA, CNAME, MX, NAPTR, SRV types) using the monitor
+2. **Wide IP Discovery**: Finds all Wide IPs that reference pools using the monitor
+3. **Status Check**: Verifies each GTM object's `enabled` and `available` status
+4. **Protection**: Blocks dereferencing if ANY GTM object is both enabled AND available
+5. **Recommendation**: Provides guidance for maintenance window procedures
+
+**Example Output**:
+```
+  🔄 Dereferencing from GTM HTTPS Monitor: health-check-monitor (partition: Common)
+    🔍 Checking GTM objects using monitor: health-check-monitor
+    📊 Found 1 GTM pool(s) and 2 Wide IP(s) using this monitor
+      ⚠️  GTM Pool web-pool is ACTIVE
+      ✅ GTM Pool backup-pool is inactive
+      ⚠️  GTM Wide IP www.example.com is ACTIVE
+      ✅ GTM Wide IP test.example.com is inactive
+    🛑 ABORTED: 2 active GTM object(s) found. Monitor dereferencing could impact global traffic management.
+    💡 Recommendation: Disable affected GTM pools/Wide IPs during maintenance window before retrying.
+```
+
+### **Safety Check Coverage** 🛡️
+
+| Object Type | Safety Check | What's Verified |
+|------------|-------------|-----------------|
+| **Client-SSL Profile** | Virtual Server Status | All Virtual Servers using this profile are inactive |
+| **Server-SSL Profile** | Virtual Server Status | All Virtual Servers using this profile are inactive |
+| **GTM HTTPS Monitor** | GTM Object Status | All GTM pools and Wide IPs using this monitor are inactive |
+| **LTM HTTPS Monitor** | ❌ None | Safe to dereference (only affects health checking) |
+| **OCSP Responder** | ❌ None | Safe to dereference (security validation continues) |
+| **APM Authentication** | ❌ None | Safe to dereference (may affect authentication) |
+| **LDAP/RADIUS Servers** | ❌ None | Safe to dereference (authentication may be affected) |
+| **Syslog Destinations** | ❌ None | Safe to dereference (logging continues without encryption) |
+
+### **Override Options** ⚙️
+If safety checks fail but you need to proceed anyway:
+
+1. **Maintenance Window Approach** (Recommended):
+   ```bash
+   # Disable affected Virtual Servers/GTM objects first
+   # Then run certificate cleanup
+   # Re-enable services after cleanup
+   ```
+
+2. **Manual Override** (Advanced Users):
+   - Comment out safety check calls in `dereference_certificate()` method
+   - Proceed at your own risk with full understanding of service impact
+
+### **Fail-Safe Design** 🔒
+- **Conservative Approach**: When in doubt, the script blocks operations
+- **Warning Fallback**: If status checks fail due to API errors, operations proceed with warnings
+- **Clear Messaging**: Specific recommendations provided when operations are blocked
+- **Comprehensive Logging**: All safety check results are logged for audit purposes
+
 ## ⚠️ Critical Considerations
 
 ### **High-Priority Certificate Locations**

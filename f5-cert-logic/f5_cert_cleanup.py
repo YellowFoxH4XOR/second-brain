@@ -1088,18 +1088,379 @@ class F5CertificateCleanup:
         Returns:
             Tuple of (default_cert_path, default_key_path)
         """
-        # Check if partition has its own default certificate
-        partition_default_cert = f"/{partition}/default.crt"
-        partition_default_key = f"/{partition}/default.key"
-        
         try:
-            # Try to verify partition-specific default certificate exists
-            encoded_name = partition_default_cert.replace('/', '~')
-            self._make_request('GET', f"/mgmt/tm/sys/file/ssl-cert/{encoded_name}")
-            return partition_default_cert, partition_default_key
+            # Try to find partition-specific default certificate first
+            partition_default_cert = f"/{partition}/default.crt"
+            partition_default_key = f"/{partition}/default.key"
+            
+            # Check if partition-specific defaults exist
+            try:
+                response = self._make_request('GET', f'/mgmt/tm/sys/file/ssl-cert?$filter=partition eq {partition}')
+                for cert in response.json().get('items', []):
+                    if cert.get('name') == 'default.crt':
+                        return partition_default_cert, partition_default_key
+            except:
+                pass
+            
+            return "/Common/default.crt", "/Common/default.key"
+            
         except:
             # Fall back to Common default
             return "/Common/default.crt", "/Common/default.key"
+    
+    def check_virtual_server_status(self, usage: CertificateUsage) -> bool:
+        """
+        Check if any Virtual Servers using SSL profiles with this certificate are active
+        
+        Args:
+            usage: CertificateUsage object for SSL profile
+            
+        Returns:
+            True if safe to proceed (no active Virtual Servers), False if blocked
+        """
+        if usage.object_type not in ['Client-SSL Profile', 'Server-SSL Profile']:
+            return True  # Not an SSL profile, no Virtual Server check needed
+        
+        try:
+            print(f"    🔍 Checking Virtual Servers using {usage.object_type}: {usage.object_name}")
+            
+            # Find Virtual Servers using this SSL profile
+            virtual_servers = self._find_virtual_servers_using_ssl_profile(usage.object_name, usage.object_type, usage.partition)
+            
+            if not virtual_servers:
+                print(f"    ✅ No Virtual Servers found using this SSL profile")
+                return True
+            
+            print(f"    📊 Found {len(virtual_servers)} Virtual Server(s) using this SSL profile")
+            
+            # Check status of each Virtual Server
+            active_count = 0
+            for vs_name, vs_partition in virtual_servers:
+                vs_status = self._get_virtual_server_status(vs_name, vs_partition)
+                if vs_status['enabled'] and vs_status['available']:
+                    active_count += 1
+                    print(f"      ⚠️  Virtual Server {vs_name} is ACTIVE (enabled: {vs_status['enabled']}, available: {vs_status['available']})")
+                else:
+                    print(f"      ✅ Virtual Server {vs_name} is inactive (enabled: {vs_status['enabled']}, available: {vs_status['available']})")
+            
+            if active_count > 0:
+                print(f"    ❌ BLOCKED: {active_count} active Virtual Server(s) found. Certificate dereferencing could impact services.")
+                return False
+            else:
+                print(f"    ✅ All Virtual Servers are inactive - safe to proceed")
+                return True
+                
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check Virtual Server status: {e}")
+            print(f"    ⚠️  Proceeding with caution - recommend manual verification")
+            return True  # Default to allowing operation with warning
+    
+    def _find_virtual_servers_using_ssl_profile(self, profile_name: str, profile_type: str, partition: str) -> List[Tuple[str, str]]:
+        """
+        Find Virtual Servers that use a specific SSL profile
+        
+        Args:
+            profile_name: Name of the SSL profile
+            profile_type: Type of SSL profile (Client-SSL or Server-SSL)
+            partition: Partition of the profile
+            
+        Returns:
+            List of tuples (vs_name, vs_partition) for Virtual Servers using this profile
+        """
+        virtual_servers = []
+        
+        try:
+            # Get all Virtual Servers in all partitions
+            all_partitions = self.discover_partitions()
+            
+            for vs_partition in all_partitions:
+                response = self._make_request('GET', f'/mgmt/tm/ltm/virtual?$filter=partition eq {vs_partition}')
+                
+                for vs in response.json().get('items', []):
+                    vs_name = vs.get('name')
+                    profiles = vs.get('profiles', {})
+                    
+                    # Check if this Virtual Server uses our SSL profile
+                    profile_full_path = f"/{partition}/{profile_name}"
+                    profile_simple_name = profile_name
+                    
+                    for profile_path, profile_config in profiles.items():
+                        # Check both full path and simple name matches
+                        if (profile_path == profile_full_path or 
+                            profile_path.endswith(f"/{profile_name}") or
+                            profile_path == profile_simple_name):
+                            
+                            # Verify it's the correct type of SSL profile
+                            context = profile_config.get('context', '')
+                            if ((profile_type == 'Client-SSL Profile' and context == 'clientside') or
+                                (profile_type == 'Server-SSL Profile' and context == 'serverside')):
+                                virtual_servers.append((vs_name, vs_partition))
+                                break
+                                
+        except Exception as e:
+            print(f"      ⚠️  Warning: Error finding Virtual Servers using SSL profile: {e}")
+        
+        return virtual_servers
+    
+    def _get_virtual_server_status(self, vs_name: str, vs_partition: str) -> Dict[str, bool]:
+        """
+        Get the status of a Virtual Server
+        
+        Args:
+            vs_name: Virtual Server name
+            vs_partition: Virtual Server partition
+            
+        Returns:
+            Dictionary with 'enabled' and 'available' status
+        """
+        try:
+            # Get Virtual Server configuration
+            vs_path = f"~{vs_partition}~{vs_name}".replace('/', '~')
+            response = self._make_request('GET', f'/mgmt/tm/ltm/virtual/{vs_path}')
+            vs_config = response.json()
+            
+            # Check if enabled
+            enabled = vs_config.get('enabled', True)  # Default to True if not specified
+            disabled = vs_config.get('disabled', False)
+            is_enabled = enabled and not disabled
+            
+            # Get Virtual Server stats to check availability
+            try:
+                stats_response = self._make_request('GET', f'/mgmt/tm/ltm/virtual/{vs_path}/stats')
+                stats = stats_response.json()
+                
+                # Parse availability from stats
+                entries = stats.get('entries', {})
+                availability_state = 'unknown'
+                
+                for entry_key, entry_data in entries.items():
+                    nested_stats = entry_data.get('nestedStats', {}).get('entries', {})
+                    if 'status.availabilityState' in nested_stats:
+                        availability_state = nested_stats['status.availabilityState']['description']
+                        break
+                
+                is_available = availability_state.lower() in ['available', 'green']
+                
+            except Exception:
+                # If stats are not available, assume available if enabled
+                is_available = is_enabled
+            
+            return {
+                'enabled': is_enabled,
+                'available': is_available
+            }
+            
+        except Exception as e:
+            print(f"        ⚠️  Warning: Could not get status for Virtual Server {vs_name}: {e}")
+            return {'enabled': True, 'available': True}  # Conservative assumption
+    
+    def check_gtm_object_status(self, usage: CertificateUsage) -> bool:
+        """
+        Check if GTM objects using this monitor are active
+        
+        Args:
+            usage: CertificateUsage object for GTM monitor
+            
+        Returns:
+            True if safe to proceed, False if blocked
+        """
+        if usage.object_type != 'GTM HTTPS Monitor':
+            return True  # Not a GTM monitor, no GTM check needed
+        
+        if not self.is_gtm_available():
+            return True  # GTM not available, skip check
+        
+        try:
+            print(f"    🔍 Checking GTM objects using monitor: {usage.object_name}")
+            
+            # Find GTM pools and Wide IPs using this monitor
+            gtm_objects = self._find_gtm_objects_using_monitor(usage.object_name, usage.partition)
+            
+            if not gtm_objects['pools'] and not gtm_objects['wideips']:
+                print(f"    ✅ No GTM objects found using this monitor")
+                return True
+            
+            print(f"    📊 Found {len(gtm_objects['pools'])} GTM pool(s) and {len(gtm_objects['wideips'])} Wide IP(s) using this monitor")
+            
+            # Check status of GTM pools
+            active_pools = 0
+            for pool_name, pool_partition in gtm_objects['pools']:
+                pool_status = self._get_gtm_pool_status(pool_name, pool_partition)
+                if pool_status['enabled'] and pool_status['available']:
+                    active_pools += 1
+                    print(f"      ⚠️  GTM Pool {pool_name} is ACTIVE")
+                else:
+                    print(f"      ✅ GTM Pool {pool_name} is inactive")
+            
+            # Check status of Wide IPs
+            active_wideips = 0
+            for wideip_name, wideip_partition in gtm_objects['wideips']:
+                wideip_status = self._get_gtm_wideip_status(wideip_name, wideip_partition)
+                if wideip_status['enabled'] and wideip_status['available']:
+                    active_wideips += 1
+                    print(f"      ⚠️  GTM Wide IP {wideip_name} is ACTIVE")
+                else:
+                    print(f"      ✅ GTM Wide IP {wideip_name} is inactive")
+            
+            total_active = active_pools + active_wideips
+            if total_active > 0:
+                print(f"    ❌ BLOCKED: {total_active} active GTM object(s) found. Monitor dereferencing could impact global traffic management.")
+                return False
+            else:
+                print(f"    ✅ All GTM objects are inactive - safe to proceed")
+                return True
+                
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check GTM object status: {e}")
+            print(f"    ⚠️  Proceeding with caution - recommend manual verification")
+            return True  # Default to allowing operation with warning
+    
+    def _find_gtm_objects_using_monitor(self, monitor_name: str, partition: str) -> Dict[str, List[Tuple[str, str]]]:
+        """
+        Find GTM pools and Wide IPs using a specific monitor
+        
+        Args:
+            monitor_name: Name of the monitor
+            partition: Partition of the monitor
+            
+        Returns:
+            Dictionary with 'pools' and 'wideips' lists
+        """
+        gtm_objects = {'pools': [], 'wideips': []}
+        
+        if not self.is_gtm_available():
+            return gtm_objects
+        
+        monitor_full_path = f"/{partition}/{monitor_name}"
+        
+        try:
+            # Check GTM pools
+            all_partitions = self.discover_partitions()
+            
+            for pool_partition in all_partitions:
+                # Check different pool types (A, AAAA, CNAME, etc.)
+                pool_types = ['a', 'aaaa', 'cname', 'mx', 'naptr', 'srv']
+                
+                for pool_type in pool_types:
+                    try:
+                        response = self._make_request('GET', f'/mgmt/tm/gtm/pool/{pool_type}?$filter=partition eq {pool_partition}')
+                        
+                        for pool in response.json().get('items', []):
+                            pool_name = pool.get('name')
+                            monitor_config = pool.get('monitor', '')
+                            
+                            # Check if this pool uses our monitor
+                            if (monitor_full_path in monitor_config or 
+                                monitor_name in monitor_config):
+                                gtm_objects['pools'].append((pool_name, pool_partition))
+                                
+                    except Exception:
+                        continue  # Skip pool types that don't exist
+            
+            # Check GTM Wide IPs
+            for wideip_partition in all_partitions:
+                wideip_types = ['a', 'aaaa', 'cname', 'mx', 'naptr', 'srv']
+                
+                for wideip_type in wideip_types:
+                    try:
+                        response = self._make_request('GET', f'/mgmt/tm/gtm/wideip/{wideip_type}?$filter=partition eq {wideip_partition}')
+                        
+                        for wideip in response.json().get('items', []):
+                            wideip_name = wideip.get('name')
+                            
+                            # Check pools referenced by this Wide IP
+                            pools = wideip.get('pools', [])
+                            for pool_ref in pools:
+                                # If any referenced pool uses our monitor, the Wide IP is affected
+                                if pool_ref.get('name') in [p[0] for p in gtm_objects['pools']]:
+                                    gtm_objects['wideips'].append((wideip_name, wideip_partition))
+                                    break
+                                    
+                    except Exception:
+                        continue  # Skip Wide IP types that don't exist
+                        
+        except Exception as e:
+            print(f"      ⚠️  Warning: Error finding GTM objects using monitor: {e}")
+        
+        return gtm_objects
+    
+    def _get_gtm_pool_status(self, pool_name: str, pool_partition: str) -> Dict[str, bool]:
+        """
+        Get the status of a GTM pool
+        
+        Args:
+            pool_name: GTM pool name
+            pool_partition: GTM pool partition
+            
+        Returns:
+            Dictionary with 'enabled' and 'available' status
+        """
+        try:
+            # Try different pool types to find the pool
+            pool_types = ['a', 'aaaa', 'cname', 'mx', 'naptr', 'srv']
+            
+            for pool_type in pool_types:
+                try:
+                    pool_path = f"~{pool_partition}~{pool_name}".replace('/', '~')
+                    response = self._make_request('GET', f'/mgmt/tm/gtm/pool/{pool_type}/{pool_path}')
+                    pool_config = response.json()
+                    
+                    # Check if enabled
+                    enabled = pool_config.get('enabled', True)
+                    disabled = pool_config.get('disabled', False)
+                    is_enabled = enabled and not disabled
+                    
+                    # For GTM pools, if enabled assume available (stats are complex)
+                    return {'enabled': is_enabled, 'available': is_enabled}
+                    
+                except Exception:
+                    continue  # Try next pool type
+            
+            # If not found in any pool type, assume inactive
+            return {'enabled': False, 'available': False}
+            
+        except Exception as e:
+            print(f"        ⚠️  Warning: Could not get status for GTM pool {pool_name}: {e}")
+            return {'enabled': True, 'available': True}  # Conservative assumption
+    
+    def _get_gtm_wideip_status(self, wideip_name: str, wideip_partition: str) -> Dict[str, bool]:
+        """
+        Get the status of a GTM Wide IP
+        
+        Args:
+            wideip_name: GTM Wide IP name
+            wideip_partition: GTM Wide IP partition
+            
+        Returns:
+            Dictionary with 'enabled' and 'available' status
+        """
+        try:
+            # Try different Wide IP types to find the Wide IP
+            wideip_types = ['a', 'aaaa', 'cname', 'mx', 'naptr', 'srv']
+            
+            for wideip_type in wideip_types:
+                try:
+                    wideip_path = f"~{wideip_partition}~{wideip_name}".replace('/', '~')
+                    response = self._make_request('GET', f'/mgmt/tm/gtm/wideip/{wideip_type}/{wideip_path}')
+                    wideip_config = response.json()
+                    
+                    # Check if enabled
+                    enabled = wideip_config.get('enabled', True)
+                    disabled = wideip_config.get('disabled', False)
+                    is_enabled = enabled and not disabled
+                    
+                    # For GTM Wide IPs, if enabled assume available
+                    return {'enabled': is_enabled, 'available': is_enabled}
+                    
+                except Exception:
+                    continue  # Try next Wide IP type
+            
+            # If not found in any Wide IP type, assume inactive
+            return {'enabled': False, 'available': False}
+            
+        except Exception as e:
+            print(f"        ⚠️  Warning: Could not get status for GTM Wide IP {wideip_name}: {e}")
+            return {'enabled': True, 'available': True}  # Conservative assumption
     
     def dereference_certificate(self, cert_path: str, usage: CertificateUsage) -> bool:
         """
@@ -1114,6 +1475,18 @@ class F5CertificateCleanup:
         """
         try:
             print(f"  🔄 Dereferencing from {usage.object_type}: {usage.object_name} (partition: {usage.partition})")
+            
+            # 🚨 SAFETY CHECK: Check Virtual Server status for SSL profiles
+            if not self.check_virtual_server_status(usage):
+                print(f"    🛑 ABORTED: Active Virtual Server(s) detected. Dereferencing blocked to prevent service impact.")
+                print(f"    💡 Recommendation: Disable affected Virtual Servers during maintenance window before retrying.")
+                return False
+            
+            # 🚨 SAFETY CHECK: Check GTM object status for GTM monitors  
+            if not self.check_gtm_object_status(usage):
+                print(f"    🛑 ABORTED: Active GTM object(s) detected. Dereferencing blocked to prevent traffic management impact.")
+                print(f"    💡 Recommendation: Disable affected GTM pools/Wide IPs during maintenance window before retrying.")
+                return False
             
             # Get appropriate default certificate for this partition
             default_cert, default_key = self.get_default_certificate_for_partition(usage.partition)
@@ -1204,7 +1577,7 @@ class F5CertificateCleanup:
                 return False
             
             response = self._make_request('PATCH', endpoint, json=update_data)
-            print(f"    ✅ Successfully dereferenced")
+            print(f"    ✅ Successfully dereferenced after safety checks")
             return True
             
         except Exception as e:

@@ -16,33 +16,72 @@ This optimization fetches all F5 objects once per partition and checks all certi
 
 To disable optimization (for compatibility): `--disable-bulk-optimization`
 
-## Key Features
+## ✨ Key Features
 
-- 🛡️ **Default Certificate Protection**: Never deletes default.crt/default.key
-- 🔍 **Smart Module Detection**: Only checks GTM/APM if modules are active
-- 🚀 **Bulk Performance Optimization**: Dramatically faster with many certificates
-- 📊 **Comprehensive Usage Analysis**: Checks all SSL profile types and monitors
-- 🗂️ **Multi-Partition Support**: Works across all F5 partitions
-- 📄 **HTML Reports**: Detailed pre-deletion analysis reports
-- 🔄 **Safe Dereferencing**: Replaces used certificates with defaults before deletion
-- 💾 **Automatic Backups**: Creates JSON backups before any changes
+- **🔍 Comprehensive Discovery**: Automatically discovers certificates across all F5 partitions
+- **📊 Usage Analysis**: Checks certificate usage across 15+ different F5 object types
+- **🚨 Service Impact Prevention**: Built-in safety checks prevent dereferencing from active Virtual Servers and GTM objects
+- **⚡ Performance Optimized**: Bulk API operations reduce scan time by up to 95%
+- **🛡️ Safety First**: Never deletes default certificates, creates backups before deletion
+- **📄 Detailed Reporting**: Generates comprehensive HTML reports with actionable insights
+- **🔧 Flexible Targeting**: Support for single devices or batch operations across device fleets
+- **🌐 Multi-Partition Support**: Works seamlessly across all F5 administrative partitions
+- **🔒 TLS Compatibility**: Intelligent TLS version negotiation for devices with different TLS requirements
 
-## 🚀 Features
+## 🚨 Safety Checks: Service Impact Prevention
 
-- **🚀 Bulk Performance Optimization**: Dramatically faster with large certificate counts (99%+ API call reduction)
-- **🛡️ Default Certificate Protection**: Never deletes default.crt/default.key files
-- **🔍 Smart Module Detection**: Only checks GTM/APM if modules are active/licensed
-- **Smart Discovery**: Automatically identifies expired and expiring certificates and their corresponding SSL keys across all partitions
-- **TLS Adapter**: Advanced TLS compatibility handling for different F5 BIG-IP versions with automatic fallback
-- **Multi-Partition Support**: Discovers and processes certificates across all administrative partitions
-- **Comprehensive Usage Analysis**: Scans LTM/GTM profiles, monitors, APM authentication, LDAP/RADIUS servers, and system services for certificate references
-- **Safety First**: Never deletes certificates that are in use without dereferencing first
-- **Complete Cleanup**: Automatically deletes both certificates and their corresponding SSL keys
-- **HTML Reports**: Generates detailed pre-deletion verification reports with partition and key mapping information (auto-named with device IP)
-- **Automatic Backup**: Creates JSON backups before certificate deletion for recovery purposes (auto-named with device IP)
-- **Interactive Workflow**: Requires user confirmation before making changes
-- **Intelligent Default Replacement**: Uses partition-specific default certificates when available, falls back to `/Common/default.crt`
-- **Comprehensive Logging**: Detailed logging of all operations including key deletion
+**NEW**: The script now includes comprehensive safety checks to prevent service disruption during certificate cleanup.
+
+### Virtual Server Protection 🌐
+Before dereferencing certificates from SSL profiles, the script:
+- ✅ Discovers all Virtual Servers using the SSL profile across all partitions
+- ✅ Checks each Virtual Server's enabled and availability status
+- ❌ **BLOCKS** dereferencing if any Virtual Server is active
+- 💡 Provides specific recommendations for maintenance windows
+
+### GTM Object Protection 🌍
+Before dereferencing certificates from GTM HTTPS monitors, the script:
+- ✅ Discovers all GTM pools using the monitor (A, AAAA, CNAME, MX, NAPTR, SRV types)
+- ✅ Discovers all GTM Wide IPs that reference those pools
+- ✅ Checks each GTM object's enabled and availability status
+- ❌ **BLOCKS** dereferencing if any GTM object is active
+- 💡 Provides specific recommendations for maintenance windows
+
+### Fail-Safe Design 🔒
+- **Conservative Approach**: When in doubt, operations are blocked
+- **Warning Fallback**: If status checks fail, operations proceed with warnings
+- **Clear Guidance**: Specific recommendations provided when operations are blocked
+- **Comprehensive Logging**: All safety check results are logged for audit
+
+**Example Safety Check Output**:
+```
+🔄 Dereferencing from Client-SSL Profile: prod-ssl-profile
+  🔍 Checking Virtual Servers using Client-SSL Profile: prod-ssl-profile
+  📊 Found 2 Virtual Server(s) using this SSL profile
+    ⚠️  Virtual Server web-app-vs is ACTIVE (enabled: True, available: True)
+    ✅ Virtual Server test-vs is inactive (enabled: False, available: False)
+  🛑 ABORTED: 1 active Virtual Server(s) found. Certificate dereferencing blocked.
+  💡 Recommendation: Disable affected Virtual Servers during maintenance window.
+```
+
+## 🚀 Quick Start
+
+1. **Test Connection**: Verify your F5 connectivity first
+   ```bash
+   python test_connection.py --host 192.168.1.100 --username admin
+   ```
+
+2. **Generate Report**: Always start with a report-only scan
+   ```bash
+   python f5_cert_cleanup.py --host 192.168.1.100 --username admin --report-only
+   ```
+
+3. **Review Report**: Carefully examine the generated HTML report before proceeding
+
+4. **Execute Cleanup**: Run the cleanup with safety checks enabled
+   ```bash
+   python f5_cert_cleanup.py --host 192.168.1.100 --username admin
+   ```
 
 ## 📋 Prerequisites
 
