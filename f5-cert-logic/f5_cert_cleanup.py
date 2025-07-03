@@ -197,6 +197,7 @@ class CleanupReport:
     expiring_certificates: List[CertificateInfo]
     unused_expired: List[CertificateInfo]
     used_expired: List[Tuple[CertificateInfo, List[CertificateUsage]]]
+    protected_expired: List[CertificateInfo]  # Default certificates that are expired but protected
     scan_timestamp: datetime.datetime
     connection_successful: bool = True
     error_message: str = ""
@@ -288,6 +289,10 @@ class F5CertificateCleanup:
         
         # Create session with TLS adapter
         self.session = self._create_f5_session()
+        
+        # Cache for module availability checks
+        self._gtm_available = None
+        self._apm_available = None
         
         # Test connection if requested
         if test_connection:
@@ -615,20 +620,21 @@ class F5CertificateCleanup:
         except Exception as e:
             print(f"⚠️  Warning: Could not check LTM HTTPS monitors in partition {partition}: {e}")
         
-        # Check GTM HTTPS monitors
-        try:
-            response = self._make_request('GET', f'/mgmt/tm/gtm/monitor/https?$filter=partition eq {partition}')
-            for monitor in response.json().get('items', []):
-                if monitor.get('cert') == cert_path:
-                    usage_list.append(CertificateUsage(
-                        object_type='GTM HTTPS Monitor',
-                        object_name=monitor['name'],
-                        object_path=monitor['fullPath'],
-                        field_name='cert',
-                        partition=partition
-                    ))
-        except Exception as e:
-            print(f"⚠️  Warning: Could not check GTM HTTPS monitors in partition {partition}: {e}")
+        # Check GTM HTTPS monitors (only if GTM is available)
+        if self.is_gtm_available():
+            try:
+                response = self._make_request('GET', f'/mgmt/tm/gtm/monitor/https?$filter=partition eq {partition}')
+                for monitor in response.json().get('items', []):
+                    if monitor.get('cert') == cert_path:
+                        usage_list.append(CertificateUsage(
+                            object_type='GTM HTTPS Monitor',
+                            object_name=monitor['name'],
+                            object_path=monitor['fullPath'],
+                            field_name='cert',
+                            partition=partition
+                        ))
+            except Exception as e:
+                print(f"⚠️  Warning: Could not check GTM HTTPS monitors in partition {partition}: {e}")
         
         # Check OCSP responders
         try:
@@ -656,40 +662,41 @@ class F5CertificateCleanup:
         except Exception as e:
             print(f"⚠️  Warning: Could not check OCSP responders in partition {partition}: {e}")
         
-        # Check APM authentication profiles
-        try:
-            response = self._make_request('GET', f'/mgmt/tm/apm/profile/authentication?$filter=partition eq {partition}')
-            for auth_profile in response.json().get('items', []):
-                if auth_profile.get('cert') == cert_path:
-                    usage_list.append(CertificateUsage(
-                        object_type='APM Authentication Profile',
-                        object_name=auth_profile['name'],
-                        object_path=auth_profile['fullPath'],
-                        field_name='cert',
-                        partition=partition
-                    ))
-                # Check trustedCAs field (can be array or single value)
-                trusted_cas = auth_profile.get('trustedCAs', [])
-                if isinstance(trusted_cas, list):
-                    for ca in trusted_cas:
-                        if ca == cert_path:
-                            usage_list.append(CertificateUsage(
-                                object_type='APM Authentication Profile',
-                                object_name=auth_profile['name'],
-                                object_path=auth_profile['fullPath'],
-                                field_name='trustedCAs',
-                                partition=partition
-                            ))
-                elif trusted_cas == cert_path:
-                    usage_list.append(CertificateUsage(
-                        object_type='APM Authentication Profile',
-                        object_name=auth_profile['name'],
-                        object_path=auth_profile['fullPath'],
-                        field_name='trustedCAs',
-                        partition=partition
-                    ))
-        except Exception as e:
-            print(f"⚠️  Warning: Could not check APM authentication profiles in partition {partition}: {e}")
+        # Check APM authentication profiles (only if APM is available)
+        if self.is_apm_available():
+            try:
+                response = self._make_request('GET', f'/mgmt/tm/apm/profile/authentication?$filter=partition eq {partition}')
+                for auth_profile in response.json().get('items', []):
+                    if auth_profile.get('cert') == cert_path:
+                        usage_list.append(CertificateUsage(
+                            object_type='APM Authentication Profile',
+                            object_name=auth_profile['name'],
+                            object_path=auth_profile['fullPath'],
+                            field_name='cert',
+                            partition=partition
+                        ))
+                    # Check trustedCAs field (can be array or single value)
+                    trusted_cas = auth_profile.get('trustedCAs', [])
+                    if isinstance(trusted_cas, list):
+                        for ca in trusted_cas:
+                            if ca == cert_path:
+                                usage_list.append(CertificateUsage(
+                                    object_type='APM Authentication Profile',
+                                    object_name=auth_profile['name'],
+                                    object_path=auth_profile['fullPath'],
+                                    field_name='trustedCAs',
+                                    partition=partition
+                                ))
+                    elif trusted_cas == cert_path:
+                        usage_list.append(CertificateUsage(
+                            object_type='APM Authentication Profile',
+                            object_name=auth_profile['name'],
+                            object_path=auth_profile['fullPath'],
+                            field_name='trustedCAs',
+                            partition=partition
+                        ))
+            except Exception as e:
+                print(f"⚠️  Warning: Could not check APM authentication profiles in partition {partition}: {e}")
         
         # Check LDAP servers
         try:
@@ -766,8 +773,15 @@ class F5CertificateCleanup:
         
         unused_expired = []
         used_expired = []
+        protected_expired = []
         
         for cert in expired_certs:
+            # Check if this is a default certificate that should be protected
+            if self.is_default_certificate(cert.name, cert.full_path):
+                protected_expired.append(cert)
+                print(f"  🛡️  Default certificate protected from deletion: {cert.name} (partition: {cert.partition})")
+                continue
+            
             print(f"  📋 Checking usage for: {cert.name} (partition: {cert.partition})")
             usage = self.check_certificate_usage(cert.full_path, partitions)
             
@@ -786,6 +800,7 @@ class F5CertificateCleanup:
             expiring_certificates=expiring_certs,
             unused_expired=unused_expired,
             used_expired=used_expired,
+            protected_expired=protected_expired,
             scan_timestamp=datetime.datetime.now()
         )
     
@@ -846,6 +861,7 @@ class F5CertificateCleanup:
                 <li><strong>Expiring Soon ({self.expiry_days} days):</strong> {len(report.expiring_certificates)}</li>
                 <li><strong>Safe to Delete (unused expired):</strong> {len(report.unused_expired)}</li>
                 <li><strong>Require Dereferencing (used expired):</strong> {len(report.used_expired)}</li>
+                <li><strong>Protected from Deletion (default certificates):</strong> {len(report.protected_expired)}</li>
             </ul>
             <p class="timestamp">Report generated: {report.scan_timestamp.strftime('%Y-%m-%d %H:%M:%S')}</p>
         </div>
@@ -878,6 +894,41 @@ class F5CertificateCleanup:
                     <td>{abs(cert.days_until_expiry)}</td>
                     <td>{cert.subject}</td>
                     <td><span class="badge badge-success">Safe Delete</span></td>
+                </tr>
+"""
+        
+        html_content += """
+            </tbody>
+        </table>
+        
+        <h2>🛡️ Protected Certificates (Default)</h2>
+        <p>These expired default certificates are protected from deletion and shown for informational purposes only:</p>
+        <table class="cert-table">
+            <thead>
+                <tr>
+                    <th>Certificate Name</th>
+                    <th>Partition</th>
+                    <th>Corresponding Key</th>
+                    <th>Expiration Date</th>
+                    <th>Days Expired</th>
+                    <th>Subject</th>
+                    <th>Protection Status</th>
+                </tr>
+            </thead>
+            <tbody>
+"""
+        
+        for cert in report.protected_expired:
+            key_info = cert.corresponding_key if cert.corresponding_key else "❌ No key found"
+            html_content += f"""
+                <tr style="background-color: #e1f5fe !important;">
+                    <td>{cert.name}</td>
+                    <td>{cert.partition}</td>
+                    <td>{key_info}</td>
+                    <td>{cert.expiration_date.strftime('%Y-%m-%d %H:%M:%S')}</td>
+                    <td>{abs(cert.days_until_expiry)}</td>
+                    <td>{cert.subject}</td>
+                    <td><span class="badge" style="background: #1976d2; color: white;">Protected</span></td>
                 </tr>
 """
         
@@ -1228,6 +1279,11 @@ class F5CertificateCleanup:
         cert_deleted = False
         key_deleted = False
         
+        # Safety check: Never delete default certificates
+        if self.is_default_certificate(cert_name, cert_name):
+            print(f"  🛡️  PROTECTED: Refusing to delete default certificate: {cert_name}")
+            return False, False
+        
         # Delete certificate
         try:
             # URL encode the certificate name
@@ -1243,10 +1299,15 @@ class F5CertificateCleanup:
         
         # Delete corresponding SSL key if provided
         if key_name:
-            try:
-                key_deleted = self.delete_ssl_key(key_name)
-            except Exception as e:
-                print(f"  ❌ Failed to delete SSL key {key_name}: {e}")
+            # Safety check for keys too
+            if self.is_default_certificate(key_name, key_name):
+                print(f"  🛡️  PROTECTED: Refusing to delete default key: {key_name}")
+                key_deleted = True  # Consider successful to avoid error state
+            else:
+                try:
+                    key_deleted = self.delete_ssl_key(key_name)
+                except Exception as e:
+                    print(f"  ❌ Failed to delete SSL key {key_name}: {e}")
         else:
             key_deleted = True  # No key to delete, consider successful
         
@@ -1323,6 +1384,97 @@ class F5CertificateCleanup:
                     print(f"  ⚠️  Skipping deletion due to failed dereferencing")
         
         return stats
+    
+    def is_gtm_available(self) -> bool:
+        """
+        Check if GTM (Global Traffic Manager) module is available and licensed
+        
+        Returns:
+            True if GTM is available, False otherwise
+        """
+        if self._gtm_available is not None:
+            return self._gtm_available
+        
+        try:
+            # Check if GTM module is provisioned
+            response = self._make_request('GET', '/mgmt/tm/sys/provision')
+            
+            for module in response.json().get('items', []):
+                if module.get('name') == 'gtm' and module.get('level') not in ['none', 'disabled']:
+                    self._gtm_available = True
+                    print(f"✅ GTM module is active (level: {module.get('level')})")
+                    return True
+            
+            self._gtm_available = False
+            print(f"ℹ️  GTM module is not active - skipping GTM checks")
+            return False
+            
+        except Exception as e:
+            print(f"⚠️  Warning: Could not check GTM module status: {e}")
+            self._gtm_available = False
+            return False
+    
+    def is_apm_available(self) -> bool:
+        """
+        Check if APM (Access Policy Manager) module is available and licensed
+        
+        Returns:
+            True if APM is available, False otherwise
+        """
+        if self._apm_available is not None:
+            return self._apm_available
+        
+        try:
+            # Check if APM module is provisioned
+            response = self._make_request('GET', '/mgmt/tm/sys/provision')
+            
+            for module in response.json().get('items', []):
+                if module.get('name') == 'apm' and module.get('level') not in ['none', 'disabled']:
+                    self._apm_available = True
+                    print(f"✅ APM module is active (level: {module.get('level')})")
+                    return True
+            
+            self._apm_available = False
+            print(f"ℹ️  APM module is not active - skipping APM checks")
+            return False
+            
+        except Exception as e:
+            print(f"⚠️  Warning: Could not check APM module status: {e}")
+            self._apm_available = False
+            return False
+    
+    def is_default_certificate(self, cert_name: str, cert_path: str) -> bool:
+        """
+        Check if a certificate is a default certificate that should never be deleted
+        
+        Args:
+            cert_name: Certificate name
+            cert_path: Certificate full path
+            
+        Returns:
+            True if this is a default certificate, False otherwise
+        """
+        # Check for default certificate patterns
+        default_patterns = [
+            'default.crt',
+            'default.key',
+            '/Common/default.crt',
+            '/Common/default.key'
+        ]
+        
+        # Check exact matches
+        if cert_name in default_patterns or cert_path in default_patterns:
+            return True
+        
+        # Check if name ends with default.crt or default.key
+        if cert_name.endswith('default.crt') or cert_name.endswith('default.key'):
+            return True
+        
+        # Check if path contains default certificate patterns
+        if any(pattern in cert_path for pattern in default_patterns):
+            return True
+        
+        return False
 
 def process_multiple_devices(devices: List[DeviceInfo], username: str = "", password: str = "", 
                            expiry_days: int = 30, report_only: bool = False, 
@@ -1367,6 +1519,7 @@ def process_multiple_devices(devices: List[DeviceInfo], username: str = "", pass
                 expiring_certificates=[],
                 unused_expired=[],
                 used_expired=[],
+                protected_expired=[],
                 scan_timestamp=datetime.datetime.now(),
                 connection_successful=False,
                 error_message="Missing credentials"
@@ -1399,6 +1552,7 @@ def process_multiple_devices(devices: List[DeviceInfo], username: str = "", pass
                     expiring_certificates=[],
                     unused_expired=[],
                     used_expired=[],
+                    protected_expired=[],
                     scan_timestamp=datetime.datetime.now(),
                     connection_successful=False,
                     error_message=str(e)
@@ -1437,6 +1591,7 @@ def process_multiple_devices(devices: List[DeviceInfo], username: str = "", pass
                 expiring_certificates=[],
                 unused_expired=[],
                 used_expired=[],
+                protected_expired=[],
                 scan_timestamp=datetime.datetime.now(),
                 connection_successful=False,
                 error_message=str(e)
@@ -1478,6 +1633,7 @@ def generate_batch_html_report(batch_report: BatchCleanupReport, output_file: st
     total_expiring = sum(len(r.expiring_certificates) for r in batch_report.reports if r.connection_successful)
     total_unused_expired = sum(len(r.unused_expired) for r in batch_report.reports if r.connection_successful)
     total_used_expired = sum(len(r.used_expired) for r in batch_report.reports if r.connection_successful)
+    total_protected = sum(len(getattr(r, 'protected_expired', [])) for r in batch_report.reports if r.connection_successful)
     
     html_content = f"""
 <!DOCTYPE html>
@@ -1541,6 +1697,10 @@ def generate_batch_html_report(batch_report: BatchCleanupReport, output_file: st
                     <div class="stat-number">{total_unused_expired}</div>
                     <div>Safe to Delete</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-number">{total_protected}</div>
+                    <div>Protected (Default)</div>
+                </div>
             </div>
             <p class="timestamp">Report generated: {batch_report.scan_timestamp.strftime('%Y-%m-%d %H:%M:%S')}</p>
         </div>
@@ -1587,6 +1747,10 @@ def generate_batch_html_report(batch_report: BatchCleanupReport, output_file: st
                 <div class="stat-card">
                     <div class="stat-number">{len(report.unused_expired)}</div>
                     <div>Safe to Delete</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{len(getattr(report, 'protected_expired', []))}</div>
+                    <div>Protected</div>
                 </div>
             </div>
 """
