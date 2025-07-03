@@ -21,7 +21,7 @@ To disable optimization (for compatibility): `--disable-bulk-optimization`
 - **🔍 Comprehensive Discovery**: Automatically discovers certificates across all F5 partitions
 - **📊 Usage Analysis**: Checks certificate usage across 15+ different F5 object types
 - **🚨 Service Impact Prevention**: Built-in safety checks prevent dereferencing from active Virtual Servers and GTM objects
-- **🔧 Multi-Partition Dereferencing**: **FIXED** - Certificate dereferencing now properly handles ALL F5 partitions with correct REST API paths
+- **🔧 Multi-Partition Operations**: **FIXED** - Certificate dereferencing AND deletion now properly handle ALL F5 partitions with correct REST API paths
 - **🔍 Configuration Tracking**: Pre/post configuration backups with **GitHub-style diff reports** showing line-by-line changes
 - **📄 Visual Diff Display**: Professional diff view with syntax highlighting, context lines, and unified diff format
 - **⚡ Performance Optimized**: Bulk API operations reduce scan time by up to 95%
@@ -31,30 +31,40 @@ To disable optimization (for compatibility): `--disable-bulk-optimization`
 - **🌐 Multi-Partition Support**: Works seamlessly across all F5 administrative partitions
 - **🔒 TLS Compatibility**: Intelligent TLS version negotiation for devices with different TLS requirements
 
-## 🔧 Critical Dereferencing Fix: Multi-Partition Support
+## 🔧 Critical Multi-Partition Fix: Operations Across ALL Partitions
 
-**CRITICAL FIX**: The certificate dereferencing logic has been completely fixed to properly handle ALL F5 partitions.
+**CRITICAL FIX**: The certificate dereferencing AND deletion logic has been completely fixed to properly handle ALL F5 partitions.
 
 ### What Was Broken ❌
-- **Single-partition limitation**: Dereferencing only worked for objects in the Common partition
-- **Incorrect API paths**: Used simple object names instead of partition-aware paths
-- **Silent failures**: Objects in non-Common partitions would fail to dereference without clear error messages
+- **Single-partition limitation**: Both dereferencing and deletion only worked for objects in the Common partition
+- **Incorrect API paths**: Used simple object names instead of partition-aware paths for both operations
+- **Silent failures**: Objects in non-Common partitions would fail without clear error messages
+- **Inconsistent behavior**: Certificates would be found and analyzed but couldn't be cleaned up
 
 ### What's Fixed Now ✅
-- **Proper partition handling**: Constructs correct F5 REST API paths using `~Partition~ObjectName` format
+- **Proper partition handling**: Constructs correct F5 REST API paths using `~Partition~ObjectName` format for ALL operations
 - **Enhanced debugging**: Detailed logging shows exact API calls and responses for troubleshooting
-- **Robust error handling**: Clear error messages with context when dereferencing fails
+- **Robust error handling**: Clear error messages with context when operations fail
 - **Universal compatibility**: Works seamlessly across ALL F5 partitions and environments
+- **Complete workflow**: Certificates can now be discovered, dereferenced, AND deleted from any partition
 
 ### Example Fix Impact
 **Before (Broken)**:
 ```
+# Dereferencing endpoint
 endpoint = "/mgmt/tm/ltm/profile/client-ssl/web-ssl"  # ❌ Fails for non-Common partitions
+
+# Deletion endpoint  
+endpoint = "/mgmt/tm/sys/file/ssl-cert/mycert.crt"   # ❌ Fails for non-Common partitions
 ```
 
 **After (Fixed)**:
 ```
+# Dereferencing endpoint
 endpoint = "/mgmt/tm/ltm/profile/client-ssl/~WebApp~web-ssl"  # ✅ Works for all partitions
+
+# Deletion endpoint
+endpoint = "/mgmt/tm/sys/file/ssl-cert/~WebApp~mycert.crt"    # ✅ Works for all partitions
 ```
 
 ## 🚨 Safety Checks: Service Impact Prevention

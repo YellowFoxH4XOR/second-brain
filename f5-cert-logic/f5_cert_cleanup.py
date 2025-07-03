@@ -1640,36 +1640,61 @@ class F5CertificateCleanup:
             print(f"    🔧 Debug info - Default cert: {default_cert if 'default_cert' in locals() else 'Not retrieved'}")
             return False
     
-    def delete_ssl_key(self, key_name: str) -> bool:
+    def delete_ssl_key(self, key_name: str, partition: str = None) -> bool:
         """
         Delete an SSL key from F5
         
         Args:
-            key_name: Name of SSL key to delete
+            key_name: Name of SSL key to delete (can be simple name or full path)
+            partition: Partition where the key resides (extracted if not provided)
             
         Returns:
             True if successful, False otherwise
         """
         try:
-            # URL encode the key name
-            encoded_name = key_name.replace('/', '~')
-            endpoint = f"/mgmt/tm/sys/file/ssl-key/{encoded_name}"
+            # Extract partition from key name if it's a full path
+            if key_name.startswith('/') and '/' in key_name[1:]:
+                # Full path format: /Partition/keyname.key
+                path_parts = key_name.split('/')
+                key_partition = path_parts[1]
+                simple_key_name = path_parts[2]
+            else:
+                # Simple name format
+                key_partition = partition or "Common"
+                simple_key_name = key_name
             
+            # Construct proper F5 REST API path with partition handling
+            if key_partition and key_partition != 'Common':
+                encoded_path = f"~{key_partition}~{simple_key_name}"
+            else:
+                encoded_path = f"~Common~{simple_key_name}"
+            
+            endpoint = f"/mgmt/tm/sys/file/ssl-key/{encoded_path}"
+            
+            print(f"  🔧 API Call: DELETE {endpoint}")
             response = self._make_request('DELETE', endpoint)
-            print(f"  🔑 Deleted SSL key: {key_name}")
-            return True
+            
+            if response.status_code in [200, 201, 202, 204]:
+                print(f"  🔑 Deleted SSL key: {key_name}")
+                return True
+            else:
+                print(f"  ❌ API call failed with status {response.status_code}: {response.text}")
+                return False
             
         except Exception as e:
             print(f"  ❌ Failed to delete SSL key {key_name}: {e}")
+            print(f"  🔧 Debug info - Key: {key_name}, Partition: {partition}")
+            print(f"  🔧 Debug info - Endpoint: {endpoint if 'endpoint' in locals() else 'Not constructed'}")
             return False
     
-    def delete_certificate(self, cert_name: str, key_name: str = "") -> Tuple[bool, bool]:
+    def delete_certificate(self, cert_name: str, key_name: str = "", partition: str = None) -> Tuple[bool, bool]:
         """
         Delete a certificate and its corresponding SSL key from F5
         
         Args:
-            cert_name: Name of certificate to delete
+            cert_name: Name of certificate to delete (can be simple name or full path)
             key_name: Name of corresponding SSL key to delete (optional)
+            partition: Partition where the certificate resides (extracted if not provided)
             
         Returns:
             Tuple of (cert_deleted, key_deleted) success flags
@@ -1677,23 +1702,47 @@ class F5CertificateCleanup:
         cert_deleted = False
         key_deleted = False
         
+        # Extract partition from certificate name if it's a full path
+        if cert_name.startswith('/') and '/' in cert_name[1:]:
+            # Full path format: /Partition/certname.crt
+            path_parts = cert_name.split('/')
+            cert_partition = path_parts[1]
+            simple_cert_name = path_parts[2]
+        else:
+            # Simple name format
+            cert_partition = partition or "Common"
+            simple_cert_name = cert_name
+        
         # Safety check: Never delete default certificates
-        if self.is_default_certificate(cert_name, cert_name):
+        full_cert_path = f"/{cert_partition}/{simple_cert_name}"
+        if self.is_default_certificate(simple_cert_name, full_cert_path):
             print(f"  🛡️  PROTECTED: Refusing to delete default certificate: {cert_name}")
             return False, False
         
         # Delete certificate
         try:
-            # URL encode the certificate name
-            encoded_name = cert_name.replace('/', '~')
-            endpoint = f"/mgmt/tm/sys/file/ssl-cert/{encoded_name}"
+            # Construct proper F5 REST API path with partition handling
+            if cert_partition and cert_partition != 'Common':
+                encoded_path = f"~{cert_partition}~{simple_cert_name}"
+            else:
+                encoded_path = f"~Common~{simple_cert_name}"
             
+            endpoint = f"/mgmt/tm/sys/file/ssl-cert/{encoded_path}"
+            
+            print(f"  🔧 API Call: DELETE {endpoint}")
             response = self._make_request('DELETE', endpoint)
-            print(f"  ✅ Deleted certificate: {cert_name}")
-            cert_deleted = True
+            
+            if response.status_code in [200, 201, 202, 204]:
+                print(f"  ✅ Deleted certificate: {cert_name}")
+                cert_deleted = True
+            else:
+                print(f"  ❌ API call failed with status {response.status_code}: {response.text}")
+                cert_deleted = False
             
         except Exception as e:
             print(f"  ❌ Failed to delete certificate {cert_name}: {e}")
+            print(f"  🔧 Debug info - Cert: {cert_name}, Partition: {cert_partition}")
+            print(f"  🔧 Debug info - Endpoint: {endpoint if 'endpoint' in locals() else 'Not constructed'}")
         
         # Delete corresponding SSL key if provided
         if key_name:
@@ -1703,7 +1752,8 @@ class F5CertificateCleanup:
                 key_deleted = True  # Consider successful to avoid error state
             else:
                 try:
-                    key_deleted = self.delete_ssl_key(key_name)
+                    # Pass partition info to delete_ssl_key
+                    key_deleted = self.delete_ssl_key(key_name, cert_partition)
                 except Exception as e:
                     print(f"  ❌ Failed to delete SSL key {key_name}: {e}")
         else:
@@ -1742,7 +1792,8 @@ class F5CertificateCleanup:
         if report.unused_expired:
             print(f"\n🗑️  Deleting {len(report.unused_expired)} unused expired certificates...")
             for cert in report.unused_expired:
-                cert_deleted, key_deleted = self.delete_certificate(cert.name, cert.corresponding_key)
+                print(f"  📋 Deleting unused certificate: {cert.name} (partition: {cert.partition})")
+                cert_deleted, key_deleted = self.delete_certificate(cert.name, cert.corresponding_key, cert.partition)
                 if cert_deleted:
                     stats['deleted_unused'] += 1
                     if cert.corresponding_key and key_deleted:
@@ -1769,7 +1820,8 @@ class F5CertificateCleanup:
                 
                 # Only delete if all dereferencing was successful
                 if dereference_success:
-                    cert_deleted, key_deleted = self.delete_certificate(cert.name, cert.corresponding_key)
+                    print(f"  📋 Deleting dereferenced certificate: {cert.name} (partition: {cert.partition})")
+                    cert_deleted, key_deleted = self.delete_certificate(cert.name, cert.corresponding_key, cert.partition)
                     if cert_deleted:
                         stats['deleted_used'] += 1
                         if cert.corresponding_key and key_deleted:
