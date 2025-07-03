@@ -1,9 +1,37 @@
 # F5 BIG-IP Certificate Cleanup Tool
 
-A comprehensive Python script for automating the identification, analysis, and safe removal of expired SSL certificates from F5 BIG-IP devices using the iControl REST API.
+## Overview
+
+This tool automates the identification and cleanup of expired SSL certificates on F5 BIG-IP devices. It provides comprehensive analysis, safe deletion workflows, and detailed reporting.
+
+## Performance Optimization
+
+🚀 **Bulk Optimization Mode** (Default): The script now uses bulk optimization for certificate usage checking, dramatically improving performance when dealing with large numbers of certificates.
+
+**Performance Comparison:**
+- **100 certificates**: ~900 API calls → ~9 API calls (99% reduction)
+- **200 certificates**: ~1800 API calls → ~9 API calls (99.5% reduction)
+
+This optimization fetches all F5 objects once per partition and checks all certificates in memory, rather than making individual API calls for each certificate.
+
+To disable optimization (for compatibility): `--disable-bulk-optimization`
+
+## Key Features
+
+- 🛡️ **Default Certificate Protection**: Never deletes default.crt/default.key
+- 🔍 **Smart Module Detection**: Only checks GTM/APM if modules are active
+- 🚀 **Bulk Performance Optimization**: Dramatically faster with many certificates
+- 📊 **Comprehensive Usage Analysis**: Checks all SSL profile types and monitors
+- 🗂️ **Multi-Partition Support**: Works across all F5 partitions
+- 📄 **HTML Reports**: Detailed pre-deletion analysis reports
+- 🔄 **Safe Dereferencing**: Replaces used certificates with defaults before deletion
+- 💾 **Automatic Backups**: Creates JSON backups before any changes
 
 ## 🚀 Features
 
+- **🚀 Bulk Performance Optimization**: Dramatically faster with large certificate counts (99%+ API call reduction)
+- **🛡️ Default Certificate Protection**: Never deletes default.crt/default.key files
+- **🔍 Smart Module Detection**: Only checks GTM/APM if modules are active/licensed
 - **Smart Discovery**: Automatically identifies expired and expiring certificates and their corresponding SSL keys across all partitions
 - **TLS Adapter**: Advanced TLS compatibility handling for different F5 BIG-IP versions with automatic fallback
 - **Multi-Partition Support**: Discovers and processes certificates across all administrative partitions

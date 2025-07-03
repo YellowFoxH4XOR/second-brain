@@ -264,7 +264,8 @@ class F5CertificateCleanup:
     """Main class for F5 certificate cleanup operations"""
     
     def __init__(self, host: str, username: str, password: str, expiry_days: int = 30, 
-                 test_connection: bool = True, tls_version: str = 'auto', ciphers: str = None):
+                 test_connection: bool = True, tls_version: str = 'auto', ciphers: str = None,
+                 use_bulk_optimization: bool = True):
         """
         Initialize F5 connection and configuration
         
@@ -276,6 +277,7 @@ class F5CertificateCleanup:
             test_connection: Whether to test connection during initialization
             tls_version: TLS version strategy ('auto', 'legacy', 'tlsv1_2', etc.)
             ciphers: Custom cipher suite string
+            use_bulk_optimization: Whether to use bulk optimization for certificate usage checking
         """
         self.original_host = host
         self.host = host.rstrip('/')
@@ -286,6 +288,7 @@ class F5CertificateCleanup:
         self.expiry_days = expiry_days
         self.tls_version = tls_version
         self.ciphers = ciphers
+        self.use_bulk_optimization = use_bulk_optimization
         
         # Create session with TLS adapter
         self.session = self._create_f5_session()
@@ -775,22 +778,44 @@ class F5CertificateCleanup:
         used_expired = []
         protected_expired = []
         
+        # Filter out default certificates first (they are protected)
+        non_protected_expired = []
         for cert in expired_certs:
-            # Check if this is a default certificate that should be protected
             if self.is_default_certificate(cert.name, cert.full_path):
                 protected_expired.append(cert)
                 print(f"  🛡️  Default certificate protected from deletion: {cert.name} (partition: {cert.partition})")
-                continue
-            
-            print(f"  📋 Checking usage for: {cert.name} (partition: {cert.partition})")
-            usage = self.check_certificate_usage(cert.full_path, partitions)
-            
-            if not usage:
-                unused_expired.append(cert)
-                print(f"    ✅ Not in use - safe to delete")
             else:
-                used_expired.append((cert, usage))
-                print(f"    ⚠️  In use by {len(usage)} object(s) across partitions")
+                non_protected_expired.append(cert)
+        
+        # Only check usage for non-protected expired certificates
+        if non_protected_expired:
+            if self.use_bulk_optimization:
+                print(f"🚀 Using bulk optimization for {len(non_protected_expired)} non-protected expired certificates...")
+                usage_map = self.check_certificate_usage_bulk(non_protected_expired, partitions)
+                
+                # Process results
+                for cert in non_protected_expired:
+                    usage = usage_map.get(cert.full_path, [])
+                    if not usage:
+                        unused_expired.append(cert)
+                        print(f"  ✅ {cert.name} - Not in use (safe to delete)")
+                    else:
+                        used_expired.append((cert, usage))
+                        print(f"  ⚠️  {cert.name} - In use by {len(usage)} object(s)")
+            else:
+                print(f"📋 Using individual certificate checking for {len(non_protected_expired)} certificates...")
+                for cert in non_protected_expired:
+                    print(f"  📋 Checking usage for: {cert.name} (partition: {cert.partition})")
+                    usage = self.check_certificate_usage(cert.full_path, partitions)
+                    
+                    if not usage:
+                        unused_expired.append(cert)
+                        print(f"    ✅ Not in use - safe to delete")
+                    else:
+                        used_expired.append((cert, usage))
+                        print(f"    ⚠️  In use by {len(usage)} object(s) across partitions")
+        else:
+            print("ℹ️  No non-protected expired certificates to check")
         
         return CleanupReport(
             device_hostname=self.original_host,
@@ -839,7 +864,6 @@ class F5CertificateCleanup:
         .cert-table th {{ background-color: #007acc; color: white; }}
         .cert-table tr:nth-child(even) {{ background-color: #f9f9f9; }}
         .expired {{ background-color: #ffebee !important; }}
-        .expiring {{ background-color: #fff3e0 !important; }}
         .safe-delete {{ background-color: #e8f5e8 !important; }}
         .usage-details {{ background: #f8f9fa; padding: 10px; border-left: 4px solid #007acc; margin: 5px 0; }}
         .badge {{ padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }}
@@ -855,10 +879,11 @@ class F5CertificateCleanup:
         
         <div class="summary">
             <h3>📊 Summary</h3>
+            <p><strong>Device:</strong> {report.device_hostname} ({report.device_ip.replace('https://', '').replace('http://', '')})</p>
             <ul>
                 <li><strong>Total Certificates:</strong> {report.total_certificates}</li>
                 <li><strong>Expired Certificates:</strong> {len(report.expired_certificates)}</li>
-                <li><strong>Expiring Soon ({self.expiry_days} days):</strong> {len(report.expiring_certificates)}</li>
+ 
                 <li><strong>Safe to Delete (unused expired):</strong> {len(report.unused_expired)}</li>
                 <li><strong>Require Dereferencing (used expired):</strong> {len(report.used_expired)}</li>
                 <li><strong>Protected from Deletion (default certificates):</strong> {len(report.protected_expired)}</li>
@@ -960,63 +985,7 @@ class F5CertificateCleanup:
         </div>
 """
         
-        html_content += f"""
-        
-        <h2>⏰ Certificates Expiring Soon</h2>
-        <p>These certificates will expire within {self.expiry_days} days:</p>
-        <table class="cert-table">
-            <thead>
-                <tr>
-                    <th>Certificate Name</th>
-                    <th>Partition</th>
-                    <th>Corresponding Key</th>
-                    <th>Expiration Date</th>
-                    <th>Days Until Expiry</th>
-                    <th>Subject</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-"""
-        
-        for cert in report.expiring_certificates:
-            key_info = cert.corresponding_key if cert.corresponding_key else "❌ No key found"
-            html_content += f"""
-                <tr class="expiring">
-                    <td>{cert.name}</td>
-                    <td>{cert.partition}</td>
-                    <td>{key_info}</td>
-                    <td>{cert.expiration_date.strftime('%Y-%m-%d %H:%M:%S')}</td>
-                    <td>{cert.days_until_expiry}</td>
-                    <td>{cert.subject}</td>
-                    <td><span class="badge badge-warning">Expiring Soon</span></td>
-                </tr>
-"""
-        
         html_content += """
-            </tbody>
-        </table>
-        
-        <h2>🔧 Recommended Actions</h2>
-        <ol>
-            <li><strong>Review this report carefully</strong> - Verify all certificates marked for deletion</li>
-            <li><strong>Direct deletion</strong> - Certificates in "Safe for Direct Deletion" can be removed immediately</li>
-            <li><strong>Dereferencing</strong> - Certificates "Requiring Dereferencing" will be replaced with default certificates first</li>
-            <li><strong>Backup consideration</strong> - Consider backing up certificates before deletion if rollback might be needed</li>
-            <li><strong>Plan renewals</strong> - Schedule renewals for certificates expiring soon</li>
-        </ol>
-        
-        <div style="margin-top: 30px; padding: 15px; background: #fff3cd; border-radius: 5px;">
-            <h4>⚠️ Important Notes</h4>
-            <ul>
-                <li>This script will replace expired certificates with appropriate default certificates (partition-specific or /Common/default.crt)</li>
-                <li>Corresponding SSL keys are automatically deleted along with certificates for security</li>
-                <li>Services using expired certificates may experience SSL warnings until proper certificates are installed</li>
-                <li>Certificate usage is checked across all partitions to ensure complete coverage</li>
-                <li>Always test in a non-production environment first</li>
-                <li>Maintain valid certificates for production services</li>
-            </ul>
-        </div>
     </div>
 </body>
 </html>
@@ -1475,10 +1444,280 @@ class F5CertificateCleanup:
             return True
         
         return False
+    
+    def check_certificate_usage_bulk(self, certificates: List[CertificateInfo], partitions: List[str] = None) -> Dict[str, List[CertificateUsage]]:
+        """
+        Optimized bulk check for certificate usage across F5 configuration in all partitions
+        This method fetches all objects once and checks all certificates in memory for better performance
+        
+        Args:
+            certificates: List of CertificateInfo objects to check
+            partitions: List of partitions to search (if None, will discover automatically)
+            
+        Returns:
+            Dictionary mapping certificate full_path to list of CertificateUsage objects
+        """
+        print("🚀 Starting optimized bulk certificate usage analysis...")
+        
+        # Get partitions if not provided
+        if partitions is None:
+            partitions = self.discover_partitions()
+        
+        # Create mapping of certificate paths for quick lookup
+        cert_paths = {cert.full_path for cert in certificates}
+        usage_map = {cert.full_path: [] for cert in certificates}
+        
+        # Check module availability once (cached)
+        gtm_available = self.is_gtm_available()
+        apm_available = self.is_apm_available()
+        
+        # Calculate estimated API calls for performance comparison
+        object_types_per_partition = 6  # Base object types (Client-SSL, Server-SSL, LTM HTTPS, OCSP, LDAP, RADIUS, Syslog)
+        if gtm_available:
+            object_types_per_partition += 1  # GTM HTTPS monitors
+        if apm_available:
+            object_types_per_partition += 1  # APM authentication profiles
+        
+        # Old method: certificates × partitions × object_types API calls
+        old_api_calls = len(certificates) * len(partitions) * object_types_per_partition
+        # New method: partitions × object_types API calls  
+        new_api_calls = len(partitions) * object_types_per_partition
+        
+        if old_api_calls > 0:
+            performance_improvement = (old_api_calls - new_api_calls) / old_api_calls * 100
+            print(f"⚡ Performance: {new_api_calls} API calls vs {old_api_calls} individual calls ({performance_improvement:.1f}% reduction)")
+        
+        print(f"📊 Checking {len(certificates)} certificates across {len(partitions)} partition(s)")
+        
+        # Process each partition
+        for partition_idx, partition in enumerate(partitions, 1):
+            print(f"  📁 Processing partition {partition_idx}/{len(partitions)}: {partition}")
+            
+            # Fetch all objects of each type for this partition in bulk
+            self._bulk_check_partition_objects(partition, cert_paths, usage_map, gtm_available, apm_available)
+        
+        print(f"✅ Bulk usage analysis completed")
+        return usage_map
+    
+    def _bulk_check_partition_objects(self, partition: str, cert_paths: set, usage_map: Dict[str, List[CertificateUsage]], 
+                                    gtm_available: bool, apm_available: bool) -> None:
+        """
+        Bulk check all object types in a partition for certificate usage
+        
+        Args:
+            partition: Partition name to check
+            cert_paths: Set of certificate paths to look for
+            usage_map: Dictionary to update with usage results
+            gtm_available: Whether GTM module is available
+            apm_available: Whether APM module is available
+        """
+        
+        # Check Client-SSL profiles
+        try:
+            print(f"    🔍 Checking Client-SSL profiles...")
+            response = self._make_request('GET', f'/mgmt/tm/ltm/profile/client-ssl?$filter=partition eq {partition}')
+            for profile in response.json().get('items', []):
+                cert_key_chain = profile.get('certKeyChain', [])
+                for chain in cert_key_chain:
+                    cert_path = chain.get('cert')
+                    if cert_path in cert_paths:
+                        usage_map[cert_path].append(CertificateUsage(
+                            object_type='Client-SSL Profile',
+                            object_name=profile['name'],
+                            object_path=profile['fullPath'],
+                            field_name='certKeyChain.cert',
+                            partition=partition
+                        ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check Client-SSL profiles in partition {partition}: {e}")
+        
+        # Check Server-SSL profiles
+        try:
+            print(f"    🔍 Checking Server-SSL profiles...")
+            response = self._make_request('GET', f'/mgmt/tm/ltm/profile/server-ssl?$filter=partition eq {partition}')
+            for profile in response.json().get('items', []):
+                cert_path = profile.get('cert')
+                if cert_path in cert_paths:
+                    usage_map[cert_path].append(CertificateUsage(
+                        object_type='Server-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='cert',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check Server-SSL profiles in partition {partition}: {e}")
+        
+        # Check LTM HTTPS monitors
+        try:
+            print(f"    🔍 Checking LTM HTTPS monitors...")
+            response = self._make_request('GET', f'/mgmt/tm/ltm/monitor/https?$filter=partition eq {partition}')
+            for monitor in response.json().get('items', []):
+                cert_path = monitor.get('cert')
+                if cert_path in cert_paths:
+                    usage_map[cert_path].append(CertificateUsage(
+                        object_type='LTM HTTPS Monitor',
+                        object_name=monitor['name'],
+                        object_path=monitor['fullPath'],
+                        field_name='cert',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check LTM HTTPS monitors in partition {partition}: {e}")
+        
+        # Check GTM HTTPS monitors (only if GTM is available)
+        if gtm_available:
+            try:
+                print(f"    🔍 Checking GTM HTTPS monitors...")
+                response = self._make_request('GET', f'/mgmt/tm/gtm/monitor/https?$filter=partition eq {partition}')
+                for monitor in response.json().get('items', []):
+                    cert_path = monitor.get('cert')
+                    if cert_path in cert_paths:
+                        usage_map[cert_path].append(CertificateUsage(
+                            object_type='GTM HTTPS Monitor',
+                            object_name=monitor['name'],
+                            object_path=monitor['fullPath'],
+                            field_name='cert',
+                            partition=partition
+                        ))
+            except Exception as e:
+                print(f"    ⚠️  Warning: Could not check GTM HTTPS monitors in partition {partition}: {e}")
+        
+        # Check OCSP responders
+        try:
+            print(f"    🔍 Checking OCSP responders...")
+            response = self._make_request('GET', f'/mgmt/tm/sys/crypto/cert-validator/ocsp?$filter=partition eq {partition}')
+            for ocsp in response.json().get('items', []):
+                trusted_responders = ocsp.get('trustedResponders', [])
+                if isinstance(trusted_responders, list):
+                    for responder in trusted_responders:
+                        if responder in cert_paths:
+                            usage_map[responder].append(CertificateUsage(
+                                object_type='OCSP Responder',
+                                object_name=ocsp['name'],
+                                object_path=ocsp['fullPath'],
+                                field_name='trustedResponders',
+                                partition=partition
+                            ))
+                elif trusted_responders in cert_paths:
+                    usage_map[trusted_responders].append(CertificateUsage(
+                        object_type='OCSP Responder',
+                        object_name=ocsp['name'],
+                        object_path=ocsp['fullPath'],
+                        field_name='trustedResponders',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check OCSP responders in partition {partition}: {e}")
+        
+        # Check APM authentication profiles (only if APM is available)
+        if apm_available:
+            try:
+                print(f"    🔍 Checking APM authentication profiles...")
+                response = self._make_request('GET', f'/mgmt/tm/apm/profile/authentication?$filter=partition eq {partition}')
+                for auth_profile in response.json().get('items', []):
+                    # Check cert field
+                    cert_path = auth_profile.get('cert')
+                    if cert_path in cert_paths:
+                        usage_map[cert_path].append(CertificateUsage(
+                            object_type='APM Authentication Profile',
+                            object_name=auth_profile['name'],
+                            object_path=auth_profile['fullPath'],
+                            field_name='cert',
+                            partition=partition
+                        ))
+                    
+                    # Check trustedCAs field (can be array or single value)
+                    trusted_cas = auth_profile.get('trustedCAs', [])
+                    if isinstance(trusted_cas, list):
+                        for ca in trusted_cas:
+                            if ca in cert_paths:
+                                usage_map[ca].append(CertificateUsage(
+                                    object_type='APM Authentication Profile',
+                                    object_name=auth_profile['name'],
+                                    object_path=auth_profile['fullPath'],
+                                    field_name='trustedCAs',
+                                    partition=partition
+                                ))
+                    elif trusted_cas in cert_paths:
+                        usage_map[trusted_cas].append(CertificateUsage(
+                            object_type='APM Authentication Profile',
+                            object_name=auth_profile['name'],
+                            object_path=auth_profile['fullPath'],
+                            field_name='trustedCAs',
+                            partition=partition
+                        ))
+            except Exception as e:
+                print(f"    ⚠️  Warning: Could not check APM authentication profiles in partition {partition}: {e}")
+        
+        # Check LDAP servers
+        try:
+            print(f"    🔍 Checking LDAP servers...")
+            response = self._make_request('GET', f'/mgmt/tm/auth/ldap?$filter=partition eq {partition}')
+            for ldap in response.json().get('items', []):
+                # Check sslCaCertFile
+                cert_path = ldap.get('sslCaCertFile')
+                if cert_path in cert_paths:
+                    usage_map[cert_path].append(CertificateUsage(
+                        object_type='LDAP Server',
+                        object_name=ldap['name'],
+                        object_path=ldap['fullPath'],
+                        field_name='sslCaCertFile',
+                        partition=partition
+                    ))
+                # Check sslClientCert
+                cert_path = ldap.get('sslClientCert')
+                if cert_path in cert_paths:
+                    usage_map[cert_path].append(CertificateUsage(
+                        object_type='LDAP Server',
+                        object_name=ldap['name'],
+                        object_path=ldap['fullPath'],
+                        field_name='sslClientCert',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check LDAP servers in partition {partition}: {e}")
+        
+        # Check RADIUS servers
+        try:
+            print(f"    🔍 Checking RADIUS servers...")
+            response = self._make_request('GET', f'/mgmt/tm/auth/radius-server?$filter=partition eq {partition}')
+            for radius in response.json().get('items', []):
+                server_config = radius.get('server', {})
+                cert_path = server_config.get('sslCaCertFile')
+                if cert_path in cert_paths:
+                    usage_map[cert_path].append(CertificateUsage(
+                        object_type='RADIUS Server',
+                        object_name=radius['name'],
+                        object_path=radius['fullPath'],
+                        field_name='server.sslCaCertFile',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check RADIUS servers in partition {partition}: {e}")
+        
+        # Check Syslog destinations (usually global, but check per partition)
+        try:
+            print(f"    🔍 Checking Syslog destinations...")
+            response = self._make_request('GET', f'/mgmt/tm/sys/syslog?$filter=partition eq {partition}')
+            for syslog in response.json().get('items', []):
+                remote_syslog = syslog.get('remotesyslog', {})
+                cert_path = remote_syslog.get('cert')
+                if cert_path in cert_paths:
+                    usage_map[cert_path].append(CertificateUsage(
+                        object_type='Syslog Destination',
+                        object_name=syslog.get('name', 'syslog'),
+                        object_path=syslog.get('fullPath', f'/{partition}/syslog'),
+                        field_name='remotesyslog.cert',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check Syslog destinations in partition {partition}: {e}")
 
 def process_multiple_devices(devices: List[DeviceInfo], username: str = "", password: str = "", 
                            expiry_days: int = 30, report_only: bool = False, 
-                           tls_version: str = 'auto', ciphers: str = None) -> BatchCleanupReport:
+                           tls_version: str = 'auto', ciphers: str = None,
+                           use_bulk_optimization: bool = True) -> BatchCleanupReport:
     """
     Process certificate cleanup for multiple F5 devices
     
@@ -1490,6 +1729,7 @@ def process_multiple_devices(devices: List[DeviceInfo], username: str = "", pass
         report_only: Whether to only generate reports without cleanup
         tls_version: TLS version strategy for all devices
         ciphers: Custom cipher suite for all devices
+        use_bulk_optimization: Whether to use bulk optimization for certificate checking
         
     Returns:
         BatchCleanupReport with results from all devices
@@ -1536,7 +1776,8 @@ def process_multiple_devices(devices: List[DeviceInfo], username: str = "", pass
                 expiry_days,
                 test_connection=False,
                 tls_version=tls_version,
-                ciphers=ciphers
+                ciphers=ciphers,
+                use_bulk_optimization=use_bulk_optimization
             )
             
             # Test connection manually to catch errors
@@ -1713,7 +1954,7 @@ def generate_batch_html_report(batch_report: BatchCleanupReport, output_file: st
             html_content += f"""
         <div class="device-section failure">
             <div class="device-header">
-                <h3>❌ {report.device_hostname} ({report.device_ip})</h3>
+                <h3>❌ {report.device_hostname} ({report.device_ip.replace('https://', '').replace('http://', '')})</h3>
                 <span class="badge badge-danger">Connection Failed</span>
             </div>
             <p><strong>Error:</strong> {report.error_message}</p>
@@ -1727,7 +1968,7 @@ def generate_batch_html_report(batch_report: BatchCleanupReport, output_file: st
             html_content += f"""
         <div class="device-section {status_class}">
             <div class="device-header">
-                <h3>🖥️ {report.device_hostname} ({report.device_ip})</h3>
+                <h3>🖥️ {report.device_hostname} ({report.device_ip.replace('https://', '').replace('http://', '')})</h3>
                 <span class="badge {status_badge}">{status_text}</span>
             </div>
             
@@ -1740,10 +1981,7 @@ def generate_batch_html_report(batch_report: BatchCleanupReport, output_file: st
                     <div class="stat-number">{len(report.expired_certificates)}</div>
                     <div>Expired</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number">{len(report.expiring_certificates)}</div>
-                    <div>Expiring Soon</div>
-                </div>
+
                 <div class="stat-card">
                     <div class="stat-number">{len(report.unused_expired)}</div>
                     <div>Safe to Delete</div>
@@ -1805,26 +2043,6 @@ def generate_batch_html_report(batch_report: BatchCleanupReport, output_file: st
 """
     
     html_content += """
-        
-        <h2>🎯 Recommended Actions</h2>
-        <ol>
-            <li><strong>Address Failed Connections</strong> - Resolve connectivity and credential issues for failed devices</li>
-            <li><strong>Review Device Reports</strong> - Each device section shows certificates needing attention</li>
-            <li><strong>Prioritize by Usage</strong> - Focus on certificates used by multiple objects first</li>
-            <li><strong>Plan Maintenance Windows</strong> - Schedule certificate cleanup during low-traffic periods</li>
-            <li><strong>Coordinate Renewals</strong> - Plan proper certificate renewals for production services</li>
-        </ol>
-        
-        <div style="margin-top: 30px; padding: 15px; background: #fff3cd; border-radius: 5px;">
-            <h4>⚠️ Important Notes</h4>
-            <ul>
-                <li>This batch report covers multiple F5 devices - review each device carefully</li>
-                <li>Connection failures may indicate network, credential, or device issues</li>
-                <li>Certificate cleanup should be coordinated across all affected devices</li>
-                <li>SSL keys are automatically deleted along with their corresponding certificates</li>
-                <li>Always test certificate changes in non-production environments first</li>
-            </ul>
-        </div>
     </div>
 </body>
 </html>
@@ -1879,7 +2097,14 @@ Examples:
     parser.add_argument('--ciphers',
                        help='Custom cipher suite string for TLS connections')
     
+    # Performance Configuration
+    parser.add_argument('--disable-bulk-optimization', action='store_true',
+                       help='Disable bulk optimization for certificate usage checking (slower but more compatible)')
+    
     args = parser.parse_args()
+    
+    # Convert disable flag to use flag
+    use_bulk_optimization = not args.disable_bulk_optimization
     
     # Validate arguments based on mode
     if args.host and not args.username:
@@ -1914,7 +2139,8 @@ Examples:
                 args.expiry_days, 
                 args.report_only,
                 args.tls_version,
-                args.ciphers
+                args.ciphers,
+                use_bulk_optimization
             )
             
             # Generate batch HTML report
@@ -1951,7 +2177,8 @@ Examples:
                 args.password, 
                 args.expiry_days,
                 tls_version=args.tls_version,
-                ciphers=args.ciphers
+                ciphers=args.ciphers,
+                use_bulk_optimization=use_bulk_optimization
             )
             
             # Discover certificates
