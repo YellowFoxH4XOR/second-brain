@@ -89,6 +89,7 @@ The script will:
 After cleanup:
 - [ ] Check F5 configuration is still working
 - [ ] Verify services are healthy
+- [ ] Confirm SSL keys were deleted along with certificates
 - [ ] Review any SSL warnings (expected with default certificates)
 
 ---
@@ -131,9 +132,10 @@ bigip-02,192.168.1.101,admin,
 ## ⚠️ Safety Reminders
 
 1. **Test in non-production first**
-2. **Always review the HTML report**
+2. **Always review the HTML report**  
 3. **Backup F5 configuration if needed**
-4. **Services using expired certs will show SSL warnings until renewed**
+4. **Script automatically deletes both certificates AND their SSL keys**
+5. **Services using expired certs will show SSL warnings until renewed**
 
 ---
 

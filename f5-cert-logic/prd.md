@@ -1,6 +1,58 @@
 # Certificate Cleanup on F5 BIG-IP v17 Using Python and iControl REST
 
-This guide walks through identifying, detaching, and removing **expired SSL certificates** on an F5 BIG-IP (v17) device using the iControl REST API and Python. The procedure covers both LTM and GTM contexts and is designed to avoid service interruptions.
+This guide walks through identifying, detaching, and removing **expired SSL certificates and their corresponding SSL keys** across **all administrative partitions** on an F5 BIG-IP (v17) device using the iControl REST API and Python. The procedure covers both LTM and GTM contexts and is designed to avoid service interruptions.
+
+---
+
+## Multi-Partition Support
+
+The script automatically discovers and processes certificates across **all administrative partitions** on the F5 BIG-IP device:
+
+- **Partition Discovery**: Uses `/mgmt/tm/auth/partition` to enumerate all partitions
+- **Cross-Partition Certificate Discovery**: Finds certificates in all partitions using partition filtering
+- **Cross-Partition Usage Checking**: Searches for certificate references across all partitions
+- **Partition-Aware Default Replacement**: Uses partition-specific default certificates when available, falling back to `/Common/default.crt`
+
+### Partition Support Benefits:
+- **Complete Coverage**: No certificates are missed regardless of partition location
+- **Isolated Operations**: Partition-specific configurations are properly handled
+- **Smart Defaults**: Uses appropriate default certificates for each partition
+- **Comprehensive Reporting**: Shows partition information for all certificates and usage
+
+---
+
+## TLS Adapter Support
+
+The script includes a sophisticated TLS adapter to handle connectivity across different F5 BIG-IP versions:
+
+### TLS Version Strategies:
+- **`auto`** (default): Modern TLS (1.2/1.3) with automatic fallback to legacy if needed
+- **`legacy`**: Supports older TLS versions (1.0-1.2) for legacy F5 devices
+- **`tlsv1_2`**: Force TLS 1.2 only
+- **`tlsv1_3`**: Force TLS 1.3 only (where supported)
+- **`tlsv1_1`**: Force TLS 1.1 only (for very old devices)
+- **`tlsv1`**: Force TLS 1.0 only (for very old devices)
+
+### Device Compatibility:
+- **F5 v11.x-v12.x**: May require `--tls-version legacy` or specific TLS versions
+- **F5 v13.x+**: Typically work with `auto` mode (default)
+- **Older devices**: Use `--tls-version legacy` for best compatibility
+- **Custom cipher suites**: Support via `--ciphers` parameter
+
+### Usage Examples:
+```bash
+# Auto mode with fallback (recommended)
+python f5_cert_cleanup.py --host 192.168.1.100 --username admin
+
+# Legacy mode for older devices
+python f5_cert_cleanup.py --host 192.168.1.100 --username admin --tls-version legacy
+
+# Force specific TLS version
+python f5_cert_cleanup.py --host 192.168.1.100 --username admin --tls-version tlsv1_2
+
+# Custom cipher suite
+python f5_cert_cleanup.py --host 192.168.1.100 --username admin --ciphers "HIGH:!aNULL:!MD5"
+```
 
 ---
 
@@ -145,11 +197,30 @@ Replace expired certificates with `/Common/default.crt`, verify operation, then 
 
 ---
 
-## 6. Final Verification
+## 6. SSL Key Management
+
+SSL keys are automatically discovered and mapped to their corresponding certificates using common naming patterns:
+
+1. **Key Discovery**
+   * Endpoint: `GET /mgmt/tm/sys/file/ssl-key`
+   * Maps keys to certificates using naming conventions (`.crt` → `.key`, exact names, etc.)
+
+2. **Automatic Key Deletion**
+   * When a certificate is deleted, its corresponding SSL key is automatically deleted
+   * Prevents orphaned private keys from remaining on the system
+   * Enhances security by removing unused cryptographic material
+
+```bash
+# Keys are deleted automatically with certificates
+curl -sk -u user:pass \
+  -X DELETE "https://BIGIP/mgmt/tm/sys/file/ssl-key/{keyName}"
+```
+
+## 7. Final Verification
 
 1. **Search for lingering references** to the deleted certificate names across all profiles, monitors, and iRules.
 2. **Validate services**: Confirm that virtual servers, pools, and monitors are healthy.
-3. **Cleanup keys**: Optionally remove unused SSL keys via `DELETE /mgmt/tm/sys/file/ssl-key/{keyName}`.
+3. **Verify key cleanup**: Confirm that corresponding SSL keys have been removed automatically.
 
 ---
 
@@ -196,6 +267,71 @@ For enterprise environments with multiple F5 devices, the script supports batch 
 - **Resilient Operation**: Continues processing despite individual device failures
 - **Flexible Authentication**: Supports device-specific or shared credentials
 - **Risk Mitigation**: Per-device confirmation prevents mass accidental deletion
+
+---
+
+## 8. Automatic File Naming and Backup
+
+The script provides intelligent file management:
+
+### File Naming
+- **Single Device Reports**: `f5_cert_cleanup_report_{device_ip}.html`
+- **Batch Reports**: `f5_batch_cert_cleanup_report_{timestamp}.html`  
+- **Certificate Backups**: `backup_{device_ip}.json`
+
+### Automatic Backup
+Before any certificate deletion, the script creates a comprehensive JSON backup containing:
+
+```json
+{
+  "backup_metadata": {
+    "timestamp": "2024-12-15T14:30:22.123456",
+    "device_host": "192.168.1.100", 
+    "device_ip": "https://192.168.1.100",
+    "script_version": "1.0",
+    "backup_type": "certificate_cleanup",
+    "total_certificates": 4,
+    "total_used_certificates": 3
+  },
+  "certificates": [
+    {
+      "name": "expired_cert_1.crt",
+      "full_path": "/Common/expired_cert_1.crt",
+      "partition": "Common",
+      "expiration_date": "2024-01-15T10:30:00",
+      "days_until_expiry": -334,
+      "is_expired": true,
+      "subject": "CN=expired.example.com",
+      "issuer": "CN=Example CA",
+      "corresponding_key": "/Common/expired_cert_1.key"
+    }
+  ],
+  "usage_information": [
+    {
+      "certificate": {
+        "name": "expired_cert_2.crt",
+        "full_path": "/Common/expired_cert_2.crt",
+        "partition": "Common"
+      },
+      "usage_locations": [
+        {
+          "object_type": "Client-SSL Profile",
+          "object_name": "ssl_profile_1", 
+          "object_path": "/Common/ssl_profile_1",
+          "field_name": "certKeyChain.cert",
+          "partition": "Common"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Backup Benefits:**
+- **Recovery**: Complete certificate and usage information for rollback
+- **Audit Trail**: Timestamped record of all deletions
+- **Documentation**: Reference for re-creating certificates if needed
+- **Compliance**: Evidence of what was removed and when
 
 ---
 

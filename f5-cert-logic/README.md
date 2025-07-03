@@ -4,13 +4,17 @@ A comprehensive Python script for automating the identification, analysis, and s
 
 ## 🚀 Features
 
-- **Smart Discovery**: Automatically identifies expired and expiring certificates
+- **Smart Discovery**: Automatically identifies expired and expiring certificates and their corresponding SSL keys across all partitions
+- **TLS Adapter**: Advanced TLS compatibility handling for different F5 BIG-IP versions with automatic fallback
+- **Multi-Partition Support**: Discovers and processes certificates across all administrative partitions
 - **Comprehensive Usage Analysis**: Scans LTM/GTM profiles, monitors, APM authentication, LDAP/RADIUS servers, and system services for certificate references
 - **Safety First**: Never deletes certificates that are in use without dereferencing first
-- **HTML Reports**: Generates detailed pre-deletion verification reports
+- **Complete Cleanup**: Automatically deletes both certificates and their corresponding SSL keys
+- **HTML Reports**: Generates detailed pre-deletion verification reports with partition and key mapping information (auto-named with device IP)
+- **Automatic Backup**: Creates JSON backups before certificate deletion for recovery purposes (auto-named with device IP)
 - **Interactive Workflow**: Requires user confirmation before making changes
-- **Default Replacement**: Automatically replaces expired certificates with F5 default certificates
-- **Comprehensive Logging**: Detailed logging of all operations
+- **Intelligent Default Replacement**: Uses partition-specific default certificates when available, falls back to `/Common/default.crt`
+- **Comprehensive Logging**: Detailed logging of all operations including key deletion
 
 ## 📋 Prerequisites
 
@@ -82,6 +86,53 @@ bigip-dev-01,192.168.1.200,testuser,testpass
 
 **Note**: For security, leave password field empty in CSV and provide via command line or interactive prompt.
 
+### TLS Configuration
+
+```bash
+# Auto mode with fallback (default - recommended)
+python f5_cert_cleanup.py --host 192.168.1.100 --username admin --tls-version auto
+
+# Legacy mode for older F5 devices
+python f5_cert_cleanup.py --host old-bigip.local --username admin --tls-version legacy
+
+# Force specific TLS version
+python f5_cert_cleanup.py --host 192.168.1.100 --username admin --tls-version tlsv1_2
+
+# Custom cipher suite for special requirements
+python f5_cert_cleanup.py --host 192.168.1.100 --username admin --ciphers "HIGH:!aNULL:!MD5"
+
+# Batch mode with TLS configuration
+python f5_cert_cleanup.py --devices-csv devices.csv --username admin --tls-version legacy
+```
+
+### Automatic File Naming
+
+The script automatically generates descriptive filenames:
+
+```bash
+# Single device - auto-generates files with device IP
+python f5_cert_cleanup.py --host 192.168.1.100 --username admin
+# Creates: f5_cert_cleanup_report_192_168_1_100.html
+# Creates: backup_192_168_1_100.json (before deletion)
+
+# Batch mode - auto-generates files with timestamp
+python f5_cert_cleanup.py --devices-csv devices.csv --username admin
+# Creates: f5_batch_cert_cleanup_report_20241215_143022.html
+
+# Custom filenames (override auto-generation)
+python f5_cert_cleanup.py --host 192.168.1.100 --username admin --report-file custom_report.html
+python f5_cert_cleanup.py --devices-csv devices.csv --username admin --batch-report-file custom_batch.html
+```
+
+### Certificate Backup
+
+Before any certificate deletion, the script automatically creates a JSON backup containing:
+
+- **Certificate Details**: Name, expiration, subject, issuer, partition
+- **SSL Key Information**: Corresponding key names and paths
+- **Usage Information**: Complete list of F5 objects referencing each certificate
+- **Metadata**: Timestamp, device information, script version
+
 ### Advanced Usage
 
 ```bash
@@ -89,8 +140,8 @@ bigip-dev-01,192.168.1.200,testuser,testpass
 export F5_PASSWORD="your_password"
 python f5_cert_cleanup.py --host 192.168.1.100 --username admin --password "$F5_PASSWORD"
 
-# Custom report filename (single device)
-python f5_cert_cleanup.py --host 192.168.1.100 --username admin --report-file my_report.html
+# Test TLS connectivity before cleanup
+python test_connection.py --host 192.168.1.100 --username admin --tls-version legacy
 ```
 
 ### Command Line Options
@@ -103,8 +154,10 @@ python f5_cert_cleanup.py --host 192.168.1.100 --username admin --report-file my
 | `--password` | F5 password (prompts if not provided) | Interactive prompt |
 | `--expiry-days` | Days to consider certificates as "expiring soon" | 30 |
 | `--report-only` | Generate report without performing cleanup | False |
-| `--report-file` | HTML report filename (single device) | `f5_cert_cleanup_report.html` |
-| `--batch-report-file` | HTML report filename (batch mode) | `f5_batch_cert_cleanup_report.html` |
+| `--report-file` | HTML report filename (single device) | Auto-generated with device IP |
+| `--batch-report-file` | HTML report filename (batch mode) | Auto-generated with timestamp |
+| `--tls-version` | TLS version strategy (`auto`, `legacy`, `tlsv1_2`, etc.) | `auto` |
+| `--ciphers` | Custom cipher suite string for TLS connections | None |
 
 *Either `--host` or `--devices-csv` is required (mutually exclusive)
 
@@ -193,8 +246,8 @@ The script checks certificate usage in:
   📋 Checking usage for: expired_ldap_ca.crt
     ⚠️  In use by 1 object(s) (LDAP Server)
 
-📄 Generating HTML report: f5_cert_cleanup_report.html
-✅ Report saved to: /path/to/f5_cert_cleanup_report.html
+📄 Generating HTML report: f5_cert_cleanup_report_192_168_1_100.html
+✅ Report saved to: /path/to/f5_cert_cleanup_report_192_168_1_100.html
 
 📊 Cleanup Summary:
   Total certificates: 25
@@ -210,6 +263,11 @@ The script checks certificate usage in:
 ❓ Do you want to proceed with the cleanup? (yes/no): yes
 
 🧹 Starting certificate cleanup...
+
+💾 Creating certificate backup: backup_192_168_1_100.json
+✅ Certificate backup saved to: /path/to/backup_192_168_1_100.json
+   📁 Backup contains 4 certificate(s) and 3 usage record(s)
+
 🗑️  Deleting 1 unused expired certificates...
   ✅ Deleted certificate: expired_cert_1.crt
 
@@ -232,6 +290,7 @@ The script checks certificate usage in:
 🎉 Cleanup completed!
   ✅ Deleted unused certificates: 1
   ✅ Deleted used certificates: 3
+  🔑 Deleted SSL keys: 4
   🔄 Dereferenced objects: 3
 ```
 
@@ -278,6 +337,7 @@ The script checks certificate usage in:
   ✅ Successful connections: 2
   ❌ Failed connections: 1
   🔒 Total expired certificates found: 5
+  🔑 Total SSL keys found: 4
   🗑️  Total safe to delete: 3
 ```
 
@@ -317,6 +377,15 @@ The script checks certificate usage in:
 - Check network connectivity
 - Verify F5 management interface is accessible
 - Confirm credentials are correct
+- Try different TLS version: `--tls-version legacy` for older devices
+
+**TLS/SSL Errors**:
+```bash
+[SSL: WRONG_VERSION_NUMBER] or [SSL: UNSUPPORTED_PROTOCOL]
+```
+- Use `--tls-version legacy` for older F5 devices (v11.x-v12.x)
+- Try `--tls-version tlsv1_2` for modern devices
+- Use `--ciphers "HIGH:!aNULL"` for custom cipher requirements
 
 **Permission Errors**:
 ```bash
@@ -334,10 +403,13 @@ The script checks certificate usage in:
 
 ## 📚 Additional Resources
 
+- [Recovery Guide](RECOVERY_GUIDE.md) - Complete guide for using backup files to recover deleted certificates
+- [TLS Compatibility Guide](TLS_COMPATIBILITY.md) - Comprehensive guide for TLS configuration and troubleshooting
 - [Batch Processing Guide](BATCH_PROCESSING.md) - Complete guide for CSV batch processing across multiple devices
 - [Certificate Usage Guide](CERTIFICATE_USAGE_GUIDE.md) - Comprehensive guide to F5 certificate usage locations
 - [F5 iControl REST API Documentation](https://clouddocs.f5.com/api/bigip-tm/latest/)
 - [F5 Certificate Management](https://support.f5.com/csp/knowledge-center/software/BIG-IP?module=BIG-IP%20LTM&version=17.1.0)
+- [F5 DevCentral TLS Automation](https://github.com/f5devcentral/f5-tls-automation)
 - [F5 APM Certificate-based Authentication](https://community.f5.com/kb/technicalarticles/migrating-f5-big-ip-apm-from-legacy-nac-service-to-compliance-retrieval-service/309398)
 - [SSL Certificate Best Practices](https://support.f5.com/csp/knowledge-center/)
 
