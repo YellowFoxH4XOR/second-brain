@@ -2591,14 +2591,14 @@ class F5CertificateCleanup:
     
     def _generate_running_config_diff(self, pre_config: Dict[str, any], post_config: Dict[str, any]) -> str:
         """
-        Generate a GitHub-style diff of the running configuration text
+        Generate a side-by-side diff of the running configuration text
         
         Args:
             pre_config: Configuration before cleanup
             post_config: Configuration after cleanup
             
         Returns:
-            HTML formatted diff content
+            HTML formatted side-by-side diff content
         """
         try:
             # Get the raw configuration text
@@ -2609,52 +2609,29 @@ class F5CertificateCleanup:
                 return '<div class="no-diff">No running configuration text available for comparison</div>'
             
             # Split into lines for difflib
-            pre_lines = pre_config_text.splitlines(keepends=True)
-            post_lines = post_config_text.splitlines(keepends=True)
+            pre_lines = pre_config_text.splitlines()
+            post_lines = post_config_text.splitlines()
             
-            # Generate unified diff
-            diff_lines = list(difflib.unified_diff(
-                pre_lines, 
-                post_lines,
-                fromfile='Pre-cleanup Configuration',
-                tofile='Post-cleanup Configuration',
-                lineterm='',
-                n=3  # Context lines
-            ))
-            
-            if not diff_lines:
+            # Check if there are any differences
+            if pre_lines == post_lines:
                 return '<div class="no-changes-diff">No changes detected in running configuration</div>'
             
-            # Convert diff to HTML with GitHub-style formatting
-            html_diff = '<div class="running-config-diff">\n'
+            # Generate side-by-side HTML diff
+            differ = difflib.HtmlDiff(wrapcolumn=70)
+            side_by_side_html = differ.make_table(
+                pre_lines,
+                post_lines,
+                fromdesc='Configuration BEFORE Cleanup',
+                todesc='Configuration AFTER Cleanup',
+                context=True,
+                numlines=3
+            )
             
-            for line in diff_lines:
-                line = line.rstrip('\n')
-                
-                # Skip diff headers (we'll add our own)
-                if line.startswith('---') or line.startswith('+++'):
-                    continue
-                elif line.startswith('@@'):
-                    # Hunk header
-                    html_diff += f'<div class="hunk-header">{self._escape_html(line)}</div>\n'
-                elif line.startswith('+'):
-                    # Added line
-                    content = self._escape_html(line[1:]) if len(line) > 1 else ''
-                    html_diff += f'<div class="diff-line added"><span class="line-marker">+</span><span class="line-content">{content}</span></div>\n'
-                elif line.startswith('-'):
-                    # Removed line
-                    content = self._escape_html(line[1:]) if len(line) > 1 else ''
-                    html_diff += f'<div class="diff-line removed"><span class="line-marker">-</span><span class="line-content">{content}</span></div>\n'
-                else:
-                    # Context line
-                    content = self._escape_html(line[1:]) if len(line) > 1 else ''
-                    html_diff += f'<div class="diff-line context"><span class="line-marker"> </span><span class="line-content">{content}</span></div>\n'
-            
-            html_diff += '</div>'
-            return html_diff
+            # Wrap in our custom styling div
+            return f'<div class="side-by-side-diff">{side_by_side_html}</div>'
             
         except Exception as e:
-            return f'<div class="diff-error">Error generating running config diff: {str(e)}</div>'
+            return f'<div class="diff-error">Error generating side-by-side config diff: {str(e)}</div>'
     
     def _escape_html(self, text: str) -> str:
         """Escape HTML special characters"""
@@ -2709,8 +2686,8 @@ class F5CertificateCleanup:
         .timestamp {{ font-size: 12px; color: #6c757d; }}
         .cert-info {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }}
         
-        /* GitHub-style diff styling */
-        .running-config-diff {{ 
+        /* Side-by-side diff styling */
+        .side-by-side-diff {{ 
             font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; 
             font-size: 12px; 
             border: 1px solid #d1d9e0; 
@@ -2719,41 +2696,57 @@ class F5CertificateCleanup:
             margin: 20px 0;
             overflow-x: auto;
         }}
-        .diff-line {{ 
-            display: flex; 
-            line-height: 20px; 
-            margin: 0; 
-            padding: 0; 
-            white-space: pre; 
+        .side-by-side-diff table {{ 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-family: inherit; 
+            font-size: inherit;
+        }}
+        .side-by-side-diff th {{ 
+            background-color: #f1f8ff; 
+            color: #24292e; 
+            padding: 8px 12px; 
+            border-bottom: 1px solid #c6cbd1; 
+            font-weight: bold; 
+            text-align: center;
+        }}
+        .side-by-side-diff td {{ 
+            padding: 2px 8px; 
+            vertical-align: top; 
+            white-space: pre-wrap; 
+            word-break: break-all;
             border: none;
         }}
-        .diff-line.added {{ background-color: #e6ffed; }}
-        .diff-line.removed {{ background-color: #ffeef0; }}
-        .diff-line.context {{ background-color: #fff; }}
-        .diff-line:hover {{ background-color: rgba(255, 212, 59, 0.1); }}
-        .line-marker {{ 
-            display: inline-block; 
-            width: 20px; 
-            text-align: center; 
-            color: rgba(27, 31, 35, 0.3); 
-            user-select: none; 
-            flex-shrink: 0;
-            padding: 0 8px;
+        .side-by-side-diff .diff_header {{ 
+            background-color: #f1f8ff !important; 
+            color: #24292e !important; 
+            text-align: center !important; 
+            font-weight: bold !important;
         }}
-        .diff-line.added .line-marker {{ color: #28a745; font-weight: bold; }}
-        .diff-line.removed .line-marker {{ color: #d73a49; font-weight: bold; }}
-        .line-content {{ 
-            flex: 1; 
-            padding: 0 8px; 
-            word-break: break-all; 
-            white-space: pre-wrap;
+        .side-by-side-diff .diff_next {{ 
+            background-color: #f6f8fa !important; 
+            border-right: 1px solid #d1d9e0 !important; 
+            width: 1% !important; 
+            text-align: center !important;
         }}
-        .hunk-header {{ 
-            background-color: #f1f8ff; 
-            color: rgba(27, 31, 35, 0.7); 
-            padding: 8px 16px; 
-            border-bottom: 1px solid #c6cbd1;
-            font-weight: bold;
+        .side-by-side-diff .diff_add {{ 
+            background-color: #e6ffed !important; 
+            border-right: 1px solid #c6cbd1 !important;
+        }}
+        .side-by-side-diff .diff_chg {{ 
+            background-color: #fff5b4 !important; 
+            border-right: 1px solid #c6cbd1 !important;
+        }}
+        .side-by-side-diff .diff_sub {{ 
+            background-color: #ffeef0 !important; 
+            border-right: 1px solid #c6cbd1 !important;
+        }}
+        .side-by-side-diff .diff_context {{ 
+            background-color: #fff !important; 
+            border-right: 1px solid #e1e4e8 !important;
+        }}
+        .side-by-side-diff tr:hover {{ 
+            background-color: rgba(255, 212, 59, 0.1) !important; 
         }}
         .no-diff, .no-changes-diff {{ 
             text-align: center; 

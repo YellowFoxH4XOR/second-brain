@@ -118,17 +118,18 @@ Before and after any cleanup operations, the script automatically:
 ### Configuration Diff Report 📊
 The `diff_{device_ip}.html` report provides:
 - **Summary Dashboard**: Overview of total changes made
-- **GitHub-Style Running Config Diff**: Line-by-line comparison of F5 running configuration changes
+- **Side-by-Side Running Config Diff**: Clear before/after comparison of F5 running configuration changes
 - **Certificates Deleted**: Complete list with expiration details
 - **SSL Profiles Modified**: Before/after comparison of certificate assignments
 - **Monitors Updated**: Changes to HTTPS monitor certificate references
-- **Visual Diff Display**: Color-coded before/after comparisons with syntax highlighting
+- **Visual Diff Display**: Color-coded side-by-side comparisons with syntax highlighting
 
-### GitHub-Style Configuration Diff 🔍
-**NEW**: The diff report now includes a GitHub-style unified diff view of the actual F5 running configuration:
-- **Line-by-line changes**: Shows exact configuration text modifications
-- **Syntax highlighting**: Green (+) for additions, red (-) for deletions
-- **Context lines**: Includes surrounding lines for better understanding
+### Side-by-Side Configuration Diff 🔍
+**NEW**: The diff report now includes a side-by-side comparison view of the actual F5 running configuration:
+- **Side-by-side layout**: Shows before and after configurations in parallel columns
+- **Clear visual comparison**: Easy to see exact differences between pre and post cleanup
+- **Color-coded changes**: Green for additions, red for deletions, yellow for modifications
+- **Context preservation**: Includes surrounding lines for better understanding  
 - **Professional formatting**: Monospace font with hover effects for easy reading
 - **Comprehensive coverage**: Captures all changes made during certificate cleanup
 
