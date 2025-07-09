@@ -1898,7 +1898,7 @@ class F5CertificateCleanup:
         
         return cert_deleted, key_deleted
     
-    def execute_cleanup(self, report: CleanupReport) -> Dict[str, int]:
+    def execute_cleanup(self, report: CleanupReport) -> Dict[str, any]:
         """
         Execute the certificate cleanup based on user confirmation
         
@@ -1906,7 +1906,7 @@ class F5CertificateCleanup:
             report: CleanupReport object
             
         Returns:
-            Dictionary with cleanup statistics
+            Dictionary with cleanup statistics and detailed failure information
         """
         stats = {
             'deleted_unused': 0,
@@ -1915,7 +1915,12 @@ class F5CertificateCleanup:
             'dereferenced': 0,
             'failed_dereference': 0,
             'failed_delete': 0,
-            'failed_key_delete': 0
+            'failed_key_delete': 0,
+            'failed_certificates': [],  # Detailed list of failed certificate deletions
+            'failed_keys': [],  # Detailed list of failed key deletions
+            'failed_dereferences': [],  # Detailed list of failed dereferences
+            'successful_deletions': [],  # List of successfully deleted certificates
+            'successful_dereferences': []  # List of successful dereferences
         }
         
         print("\n🧹 Starting certificate cleanup...")
@@ -1933,12 +1938,33 @@ class F5CertificateCleanup:
                 cert_deleted, key_deleted = self.delete_certificate(cert.name, cert.corresponding_key, cert.partition)
                 if cert_deleted:
                     stats['deleted_unused'] += 1
+                    stats['successful_deletions'].append({
+                        'name': cert.name,
+                        'full_path': cert.full_path,
+                        'partition': cert.partition,
+                        'type': 'unused_certificate',
+                        'corresponding_key': cert.corresponding_key
+                    })
                     if cert.corresponding_key and key_deleted:
                         stats['deleted_keys'] += 1
                     elif cert.corresponding_key and not key_deleted:
                         stats['failed_key_delete'] += 1
+                        stats['failed_keys'].append({
+                            'name': cert.corresponding_key,
+                            'certificate': cert.name,
+                            'partition': cert.partition,
+                            'reason': 'Key deletion failed'
+                        })
                 else:
                     stats['failed_delete'] += 1
+                    stats['failed_certificates'].append({
+                        'name': cert.name,
+                        'full_path': cert.full_path,
+                        'partition': cert.partition,
+                        'type': 'unused_certificate',
+                        'reason': 'Certificate deletion failed',
+                        'corresponding_key': cert.corresponding_key
+                    })
         
         # Handle used expired certificates
         if report.used_expired:
@@ -1948,12 +1974,36 @@ class F5CertificateCleanup:
                 
                 # Dereference from all usage locations
                 dereference_success = True
+                successful_dereferences = []
+                failed_dereferences = []
+                
                 for usage in usage_list:
                     if self.dereference_certificate(cert.full_path, usage):
                         stats['dereferenced'] += 1
+                        successful_dereferences.append({
+                            'object_type': usage.object_type,
+                            'object_name': usage.object_name,
+                            'object_path': usage.object_path,
+                            'field_name': usage.field_name,
+                            'partition': usage.partition
+                        })
                     else:
                         stats['failed_dereference'] += 1
                         dereference_success = False
+                        failed_dereferences.append({
+                            'object_type': usage.object_type,
+                            'object_name': usage.object_name,
+                            'object_path': usage.object_path,
+                            'field_name': usage.field_name,
+                            'partition': usage.partition,
+                            'reason': 'Dereference operation failed'
+                        })
+                
+                # Track dereference results
+                if successful_dereferences:
+                    stats['successful_dereferences'].extend(successful_dereferences)
+                if failed_dereferences:
+                    stats['failed_dereferences'].extend(failed_dereferences)
                 
                 # Only delete if all dereferencing was successful
                 if dereference_success:
@@ -1961,14 +2011,46 @@ class F5CertificateCleanup:
                     cert_deleted, key_deleted = self.delete_certificate(cert.name, cert.corresponding_key, cert.partition)
                     if cert_deleted:
                         stats['deleted_used'] += 1
+                        stats['successful_deletions'].append({
+                            'name': cert.name,
+                            'full_path': cert.full_path,
+                            'partition': cert.partition,
+                            'type': 'used_certificate',
+                            'corresponding_key': cert.corresponding_key,
+                            'dereferenced_from': successful_dereferences
+                        })
                         if cert.corresponding_key and key_deleted:
                             stats['deleted_keys'] += 1
                         elif cert.corresponding_key and not key_deleted:
                             stats['failed_key_delete'] += 1
+                            stats['failed_keys'].append({
+                                'name': cert.corresponding_key,
+                                'certificate': cert.name,
+                                'partition': cert.partition,
+                                'reason': 'Key deletion failed after successful certificate deletion'
+                            })
                     else:
                         stats['failed_delete'] += 1
+                        stats['failed_certificates'].append({
+                            'name': cert.name,
+                            'full_path': cert.full_path,
+                            'partition': cert.partition,
+                            'type': 'used_certificate',
+                            'reason': 'Certificate deletion failed after successful dereferencing',
+                            'corresponding_key': cert.corresponding_key,
+                            'successful_dereferences': successful_dereferences
+                        })
                 else:
                     print(f"  ⚠️  Skipping deletion due to failed dereferencing")
+                    stats['failed_certificates'].append({
+                        'name': cert.name,
+                        'full_path': cert.full_path,
+                        'partition': cert.partition,
+                        'type': 'used_certificate',
+                        'reason': 'Skipped due to failed dereferencing',
+                        'corresponding_key': cert.corresponding_key,
+                        'failed_dereferences': failed_dereferences
+                    })
         
         return stats
     
@@ -2657,13 +2739,14 @@ class F5CertificateCleanup:
             return ""
     
     def generate_config_diff_html(self, pre_config: Dict[str, any], post_config: Dict[str, any], 
-                                 output_file: str = None) -> str:
+                                 cleanup_stats: Dict[str, any] = None, output_file: str = None) -> str:
         """
         Generate an HTML diff report comparing pre and post configurations
         
         Args:
             pre_config: Configuration before cleanup
             post_config: Configuration after cleanup
+            cleanup_stats: Statistics and details from cleanup execution
             output_file: Optional output filename
             
         Returns:
@@ -2679,7 +2762,7 @@ class F5CertificateCleanup:
             changes = self._analyze_config_changes(pre_config, post_config)
             
             # Generate HTML content
-            html_content = self._generate_diff_html_content(changes, pre_config, post_config)
+            html_content = self._generate_diff_html_content(changes, pre_config, post_config, cleanup_stats)
             
             # Write HTML file
             with open(output_file, 'w', encoding='utf-8') as f:
@@ -2909,7 +2992,7 @@ class F5CertificateCleanup:
         return html.escape(text)
 
     def _generate_diff_html_content(self, changes: Dict[str, any], pre_config: Dict[str, any], 
-                                   post_config: Dict[str, any]) -> str:
+                                   post_config: Dict[str, any], cleanup_stats: Dict[str, any] = None) -> str:
         """Generate HTML content for the configuration diff report"""
         
         device_info = pre_config.get('device_hostname', 'Unknown Device')
@@ -3086,6 +3169,147 @@ class F5CertificateCleanup:
             </div>
             
         """
+        
+        # Add cleanup failures section if cleanup_stats is provided
+        if cleanup_stats:
+            html_content += f"""
+            <div class="section">
+                <h3>⚠️ Cleanup Operation Results</h3>
+                <div class="summary" style="background: #f8f9fa; border-left: 4px solid #007acc;">
+                    <h4>📊 Operation Summary</h4>
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #28a745;">{cleanup_stats.get('deleted_unused', 0) + cleanup_stats.get('deleted_used', 0)}</div>
+                            <div class="summary-label">Certificates Deleted</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #28a745;">{cleanup_stats.get('deleted_keys', 0)}</div>
+                            <div class="summary-label">Keys Deleted</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #28a745;">{cleanup_stats.get('dereferenced', 0)}</div>
+                            <div class="summary-label">Successful Dereferences</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #dc3545;">{len(cleanup_stats.get('failed_certificates', []))}</div>
+                            <div class="summary-label">Failed Certificate Deletions</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #dc3545;">{len(cleanup_stats.get('failed_keys', []))}</div>
+                            <div class="summary-label">Failed Key Deletions</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #dc3545;">{len(cleanup_stats.get('failed_dereferences', []))}</div>
+                            <div class="summary-label">Failed Dereferences</div>
+                        </div>
+                    </div>
+                </div>
+            """
+            
+            # Add failed certificates section
+            failed_certs = cleanup_stats.get('failed_certificates', [])
+            if failed_certs:
+                html_content += """
+                <h4 style="color: #dc3545;">❌ Failed Certificate Deletions</h4>
+                <table class="cert-table">
+                    <thead>
+                        <tr>
+                            <th>Certificate Name</th>
+                            <th>Partition</th>
+                            <th>Type</th>
+                            <th>Reason</th>
+                            <th>Corresponding Key</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """
+                for cert in failed_certs:
+                    html_content += f"""
+                        <tr class="expired">
+                            <td>{cert['name']}</td>
+                            <td>{cert['partition']}</td>
+                            <td>{cert['type'].replace('_', ' ').title()}</td>
+                            <td>{cert['reason']}</td>
+                            <td>{cert.get('corresponding_key', 'N/A')}</td>
+                        </tr>
+                    """
+                html_content += """
+                    </tbody>
+                </table>
+                """
+            
+            # Add failed keys section
+            failed_keys = cleanup_stats.get('failed_keys', [])
+            if failed_keys:
+                html_content += """
+                <h4 style="color: #dc3545;">🔑 Failed Key Deletions</h4>
+                <table class="cert-table">
+                    <thead>
+                        <tr>
+                            <th>Key Name</th>
+                            <th>Certificate</th>
+                            <th>Partition</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """
+                for key in failed_keys:
+                    html_content += f"""
+                        <tr class="expired">
+                            <td>{key['name']}</td>
+                            <td>{key['certificate']}</td>
+                            <td>{key['partition']}</td>
+                            <td>{key['reason']}</td>
+                        </tr>
+                    """
+                html_content += """
+                    </tbody>
+                </table>
+                """
+            
+            # Add failed dereferences section
+            failed_derefs = cleanup_stats.get('failed_dereferences', [])
+            if failed_derefs:
+                html_content += """
+                <h4 style="color: #dc3545;">🔄 Failed Dereference Operations</h4>
+                <table class="cert-table">
+                    <thead>
+                        <tr>
+                            <th>Object Type</th>
+                            <th>Object Name</th>
+                            <th>Partition</th>
+                            <th>Field</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """
+                for deref in failed_derefs:
+                    html_content += f"""
+                        <tr class="expired">
+                            <td>{deref['object_type']}</td>
+                            <td>{deref['object_name']}</td>
+                            <td>{deref['partition']}</td>
+                            <td>{deref['field_name']}</td>
+                            <td>{deref['reason']}</td>
+                        </tr>
+                    """
+                html_content += """
+                    </tbody>
+                </table>
+                """
+            
+            # If no failures, show success message
+            if not failed_certs and not failed_keys and not failed_derefs:
+                html_content += """
+                <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; border: 1px solid #c3e6cb;">
+                    <h4 style="color: #155724; margin: 0;">✅ All Operations Completed Successfully</h4>
+                    <p style="margin: 10px 0 0 0;">No failures occurred during the certificate cleanup process.</p>
+                </div>
+                """
+            
+            html_content += "</div>"
         
         # Add running config diff section
         html_content += f"""
@@ -3722,7 +3946,7 @@ Examples:
             
             # Generate configuration diff report
             print(f"\n📊 Generating configuration diff report...")
-            diff_report_file = f5_cleanup.generate_config_diff_html(pre_config, post_config)
+            diff_report_file = f5_cleanup.generate_config_diff_html(pre_config, post_config, stats)
             
             # Print final results
             print(f"\n🎉 Cleanup completed!")
@@ -3731,10 +3955,26 @@ Examples:
             print(f"  🔑 Deleted SSL keys: {stats['deleted_keys']}")
             print(f"  🔄 Dereferenced objects: {stats['dereferenced']}")
             
-            if stats['failed_dereference'] or stats['failed_delete'] or stats['failed_key_delete']:
-                print(f"  ❌ Failed dereferencing: {stats['failed_dereference']}")
-                print(f"  ❌ Failed certificate deletions: {stats['failed_delete']}")
-                print(f"  ❌ Failed key deletions: {stats['failed_key_delete']}")
+            # Show detailed failure information if any failures occurred
+            failed_certs = len(stats.get('failed_certificates', []))
+            failed_keys = len(stats.get('failed_keys', []))
+            failed_derefs = len(stats.get('failed_dereferences', []))
+            
+            if failed_certs or failed_keys or failed_derefs:
+                print(f"\n⚠️  Cleanup Issues:")
+                if failed_certs:
+                    print(f"  ❌ Failed certificate deletions: {failed_certs}")
+                    for cert in stats.get('failed_certificates', []):
+                        print(f"    - {cert['name']} ({cert['partition']}): {cert['reason']}")
+                if failed_keys:
+                    print(f"  ❌ Failed key deletions: {failed_keys}")
+                    for key in stats.get('failed_keys', []):
+                        print(f"    - {key['name']} (cert: {key['certificate']}): {key['reason']}")
+                if failed_derefs:
+                    print(f"  ❌ Failed dereferences: {failed_derefs}")
+                    for deref in stats.get('failed_dereferences', []):
+                        print(f"    - {deref['object_type']} {deref['object_name']}: {deref['reason']}")
+                print(f"\n💡 Check the configuration diff report for detailed failure analysis.")
             
             # Print file locations
             print(f"\n📁 Generated Files:")
