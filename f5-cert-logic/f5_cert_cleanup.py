@@ -591,6 +591,49 @@ class F5CertificateCleanup:
                             field_name='certKeyChain.cert',
                             partition=partition
                         ))
+                
+                # NEW: Check for trusted signing certificates in Client-SSL profiles
+                # Check caFile field for trusted CA certificates
+                if profile.get('caFile') == cert_path:
+                    usage_list.append(CertificateUsage(
+                        object_type='Client-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='caFile (Trusted CA)',
+                        partition=partition
+                    ))
+                
+                # Check chainFile field for certificate chain
+                if profile.get('chainFile') == cert_path:
+                    usage_list.append(CertificateUsage(
+                        object_type='Client-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='chainFile (Certificate Chain)',
+                        partition=partition
+                    ))
+                
+                # Check trustedCertAuthorities field
+                trusted_ca = profile.get('trustedCertAuthorities', [])
+                if isinstance(trusted_ca, list):
+                    for ca in trusted_ca:
+                        if ca == cert_path:
+                            usage_list.append(CertificateUsage(
+                                object_type='Client-SSL Profile',
+                                object_name=profile['name'],
+                                object_path=profile['fullPath'],
+                                field_name='trustedCertAuthorities (Trusted CA)',
+                                partition=partition
+                            ))
+                elif trusted_ca == cert_path:
+                    usage_list.append(CertificateUsage(
+                        object_type='Client-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='trustedCertAuthorities (Trusted CA)',
+                        partition=partition
+                    ))
+                    
         except Exception as e:
             print(f"⚠️  Warning: Could not check Client-SSL profiles in partition {partition}: {e}")
         
@@ -606,6 +649,28 @@ class F5CertificateCleanup:
                         field_name='cert',
                         partition=partition
                     ))
+                
+                # NEW: Check for trusted signing certificates in Server-SSL profiles
+                # Check caFile field for trusted CA certificates
+                if profile.get('caFile') == cert_path:
+                    usage_list.append(CertificateUsage(
+                        object_type='Server-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='caFile (Trusted CA)',
+                        partition=partition
+                    ))
+                
+                # Check chainFile field for certificate chain
+                if profile.get('chainFile') == cert_path:
+                    usage_list.append(CertificateUsage(
+                        object_type='Server-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='chainFile (Certificate Chain)',
+                        partition=partition
+                    ))
+                    
         except Exception as e:
             print(f"⚠️  Warning: Could not check Server-SSL profiles in partition {partition}: {e}")
         
@@ -756,6 +821,63 @@ class F5CertificateCleanup:
                     ))
         except Exception as e:
             print(f"⚠️  Warning: Could not check Syslog destinations in partition {partition}: {e}")
+        
+        # NEW: Check Certificate Validator Trust Stores
+        try:
+            response = self._make_request('GET', f'/mgmt/tm/sys/crypto/cert-validator/truststore?$filter=partition eq {partition}')
+            for truststore in response.json().get('items', []):
+                trusted_certs = truststore.get('trustedCerts', [])
+                if isinstance(trusted_certs, list):
+                    for trusted_cert in trusted_certs:
+                        if trusted_cert == cert_path:
+                            usage_list.append(CertificateUsage(
+                                object_type='Certificate Trust Store',
+                                object_name=truststore['name'],
+                                object_path=truststore['fullPath'],
+                                field_name='trustedCerts (Trust Store)',
+                                partition=partition
+                            ))
+                elif trusted_certs == cert_path:
+                    usage_list.append(CertificateUsage(
+                        object_type='Certificate Trust Store',
+                        object_name=truststore['name'],
+                        object_path=truststore['fullPath'],
+                        field_name='trustedCerts (Trust Store)',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"⚠️  Warning: Could not check Certificate Trust Stores in partition {partition}: {e}")
+        
+        # NEW: Check HTTP profiles for trusted certificates
+        try:
+            response = self._make_request('GET', f'/mgmt/tm/ltm/profile/http?$filter=partition eq {partition}')
+            for http_profile in response.json().get('items', []):
+                # Check for SSL client certificates in HTTP profiles
+                if http_profile.get('trustedCertAuthorities') == cert_path:
+                    usage_list.append(CertificateUsage(
+                        object_type='HTTP Profile',
+                        object_name=http_profile['name'],
+                        object_path=http_profile['fullPath'],
+                        field_name='trustedCertAuthorities (HTTP Profile)',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"⚠️  Warning: Could not check HTTP profiles in partition {partition}: {e}")
+            
+        # NEW: Check WebAcceleration profiles
+        try:
+            response = self._make_request('GET', f'/mgmt/tm/ltm/profile/web-acceleration?$filter=partition eq {partition}')
+            for wa_profile in response.json().get('items', []):
+                if wa_profile.get('sslCaCertFile') == cert_path:
+                    usage_list.append(CertificateUsage(
+                        object_type='Web Acceleration Profile',
+                        object_name=wa_profile['name'],
+                        object_path=wa_profile['fullPath'],
+                        field_name='sslCaCertFile (Web Acceleration)',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"⚠️  Warning: Could not check Web Acceleration profiles in partition {partition}: {e}")
     
     def analyze_certificates(self, certificates: List[CertificateInfo]) -> CleanupReport:
         """
@@ -1167,20 +1289,28 @@ class F5CertificateCleanup:
             print(f"    📊 Found {len(virtual_servers)} Virtual Server(s) using this SSL profile")
             
             # Check status of each Virtual Server
-            active_count = 0
+            unsafe_count = 0
             for vs_name, vs_partition in virtual_servers:
                 vs_status = self._get_virtual_server_status(vs_name, vs_partition)
-                if vs_status['enabled'] and vs_status['available']:
-                    active_count += 1
-                    print(f"      ⚠️  Virtual Server {vs_name} is ACTIVE (enabled: {vs_status['enabled']}, available: {vs_status['available']})")
+                # A Virtual Server is considered unsafe if it's enabled OR if its availability is not in safe states
+                # This includes 'unknown' state which should block certificate deletion
+                if vs_status['enabled'] or vs_status['available']:
+                    unsafe_count += 1
+                    status_reason = []
+                    if vs_status['enabled']:
+                        status_reason.append("enabled")
+                    if vs_status['available']:
+                        status_reason.append("available/unknown state")
+                    print(f"      ⚠️  Virtual Server {vs_name} is UNSAFE for cert deletion ({', '.join(status_reason)})")
                 else:
-                    print(f"      ✅ Virtual Server {vs_name} is inactive (enabled: {vs_status['enabled']}, available: {vs_status['available']})")
+                    print(f"      ✅ Virtual Server {vs_name} is safe (disabled and offline/down)")
             
-            if active_count > 0:
-                print(f"    ❌ BLOCKED: {active_count} active Virtual Server(s) found. Certificate dereferencing could impact services.")
+            if unsafe_count > 0:
+                print(f"    ❌ BLOCKED: {unsafe_count} Virtual Server(s) in unsafe state. Certificate dereferencing could impact services.")
+                print(f"    💡 Only Virtual Servers that are disabled AND in offline/down state are safe for certificate changes.")
                 return False
             else:
-                print(f"    ✅ All Virtual Servers are inactive - safe to proceed")
+                print(f"    ✅ All Virtual Servers are in safe state (disabled and offline/down) - safe to proceed")
                 return True
                 
         except Exception as e:
@@ -1272,11 +1402,18 @@ class F5CertificateCleanup:
                         availability_state = nested_stats['status.availabilityState']['description']
                         break
                 
-                is_available = availability_state.lower() in ['available', 'green']
+                # ENHANCED: Only consider 'offline' or 'down' states as safe for deletion
+                # 'unknown' and 'available' states are considered unsafe for certificate deletion
+                safe_states = ['offline', 'down', 'disabled']
+                is_available = availability_state.lower() not in safe_states
+                
+                # Log the actual availability state for debugging
+                print(f"        🔍 Virtual Server {vs_name} availability state: {availability_state}")
                 
             except Exception:
-                # If stats are not available, assume available if enabled
+                # If stats are not available, assume available (unsafe) if enabled
                 is_available = is_enabled
+                print(f"        ⚠️  Could not get stats for Virtual Server {vs_name}, assuming available if enabled")
             
             return {
                 'enabled': is_enabled,
@@ -1904,25 +2041,29 @@ class F5CertificateCleanup:
         Returns:
             True if this is a default certificate, False otherwise
         """
-        # Check for default certificate patterns
-        default_patterns = [
-            'default.crt',
-            'default.key',
-            '/Common/default.crt',
-            '/Common/default.key'
+        # Convert to lowercase for case-insensitive checking
+        cert_name_lower = cert_name.lower()
+        cert_path_lower = cert_path.lower()
+        
+        # SIMPLE RULE: Protect ANY certificate with "default" or "bundle" as substring
+        protected_substrings = ['default', 'bundle']
+        
+        for substring in protected_substrings:
+            if substring in cert_name_lower or substring in cert_path_lower:
+                return True
+        
+        # Additional protection for common system certificate patterns
+        system_patterns = [
+            'system',
+            'root-ca',
+            'intermediate-ca',
+            'chain',
+            'ca-cert'
         ]
         
-        # Check exact matches
-        if cert_name in default_patterns or cert_path in default_patterns:
-            return True
-        
-        # Check if name ends with default.crt or default.key
-        if cert_name.endswith('default.crt') or cert_name.endswith('default.key'):
-            return True
-        
-        # Check if path contains default certificate patterns
-        if any(pattern in cert_path for pattern in default_patterns):
-            return True
+        for system_pattern in system_patterns:
+            if system_pattern in cert_name_lower or system_pattern in cert_path_lower:
+                return True
         
         return False
     
@@ -2009,6 +2150,50 @@ class F5CertificateCleanup:
                             field_name='certKeyChain.cert',
                             partition=partition
                         ))
+                
+                # Check for trusted signing certificates in Client-SSL profiles
+                ca_file = profile.get('caFile')
+                if ca_file in cert_paths:
+                    usage_map[ca_file].append(CertificateUsage(
+                        object_type='Client-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='caFile (Trusted CA)',
+                        partition=partition
+                    ))
+                
+                # Check chainFile field for certificate chain
+                chain_file = profile.get('chainFile')
+                if chain_file in cert_paths:
+                    usage_map[chain_file].append(CertificateUsage(
+                        object_type='Client-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='chainFile (Certificate Chain)',
+                        partition=partition
+                    ))
+                
+                # Check trustedCertAuthorities field
+                trusted_ca = profile.get('trustedCertAuthorities', [])
+                if isinstance(trusted_ca, list):
+                    for ca in trusted_ca:
+                        if ca in cert_paths:
+                            usage_map[ca].append(CertificateUsage(
+                                object_type='Client-SSL Profile',
+                                object_name=profile['name'],
+                                object_path=profile['fullPath'],
+                                field_name='trustedCertAuthorities (Trusted CA)',
+                                partition=partition
+                            ))
+                elif trusted_ca in cert_paths:
+                    usage_map[trusted_ca].append(CertificateUsage(
+                        object_type='Client-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='trustedCertAuthorities (Trusted CA)',
+                        partition=partition
+                    ))
+                    
         except Exception as e:
             print(f"    ⚠️  Warning: Could not check Client-SSL profiles in partition {partition}: {e}")
         
@@ -2026,6 +2211,29 @@ class F5CertificateCleanup:
                         field_name='cert',
                         partition=partition
                     ))
+                
+                # Check for trusted signing certificates in Server-SSL profiles
+                ca_file = profile.get('caFile')
+                if ca_file in cert_paths:
+                    usage_map[ca_file].append(CertificateUsage(
+                        object_type='Server-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='caFile (Trusted CA)',
+                        partition=partition
+                    ))
+                
+                # Check chainFile field for certificate chain
+                chain_file = profile.get('chainFile')
+                if chain_file in cert_paths:
+                    usage_map[chain_file].append(CertificateUsage(
+                        object_type='Server-SSL Profile',
+                        object_name=profile['name'],
+                        object_path=profile['fullPath'],
+                        field_name='chainFile (Certificate Chain)',
+                        partition=partition
+                    ))
+                    
         except Exception as e:
             print(f"    ⚠️  Warning: Could not check Server-SSL profiles in partition {partition}: {e}")
         
@@ -2194,6 +2402,68 @@ class F5CertificateCleanup:
                     ))
         except Exception as e:
             print(f"    ⚠️  Warning: Could not check Syslog destinations in partition {partition}: {e}")
+        
+        # Check Certificate Validator Trust Stores
+        try:
+            print(f"    🔍 Checking Certificate Trust Stores...")
+            response = self._make_request('GET', f'/mgmt/tm/sys/crypto/cert-validator/truststore?$filter=partition eq {partition}')
+            for truststore in response.json().get('items', []):
+                trusted_certs = truststore.get('trustedCerts', [])
+                if isinstance(trusted_certs, list):
+                    for trusted_cert in trusted_certs:
+                        if trusted_cert in cert_paths:
+                            usage_map[trusted_cert].append(CertificateUsage(
+                                object_type='Certificate Trust Store',
+                                object_name=truststore['name'],
+                                object_path=truststore['fullPath'],
+                                field_name='trustedCerts (Trust Store)',
+                                partition=partition
+                            ))
+                elif trusted_certs in cert_paths:
+                    usage_map[trusted_certs].append(CertificateUsage(
+                        object_type='Certificate Trust Store',
+                        object_name=truststore['name'],
+                        object_path=truststore['fullPath'],
+                        field_name='trustedCerts (Trust Store)',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check Certificate Trust Stores in partition {partition}: {e}")
+        
+        # Check HTTP profiles for trusted certificates
+        try:
+            print(f"    🔍 Checking HTTP profiles...")
+            response = self._make_request('GET', f'/mgmt/tm/ltm/profile/http?$filter=partition eq {partition}')
+            for http_profile in response.json().get('items', []):
+                # Check for SSL client certificates in HTTP profiles
+                trusted_ca = http_profile.get('trustedCertAuthorities')
+                if trusted_ca in cert_paths:
+                    usage_map[trusted_ca].append(CertificateUsage(
+                        object_type='HTTP Profile',
+                        object_name=http_profile['name'],
+                        object_path=http_profile['fullPath'],
+                        field_name='trustedCertAuthorities (HTTP Profile)',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check HTTP profiles in partition {partition}: {e}")
+            
+        # Check WebAcceleration profiles
+        try:
+            print(f"    🔍 Checking Web Acceleration profiles...")
+            response = self._make_request('GET', f'/mgmt/tm/ltm/profile/web-acceleration?$filter=partition eq {partition}')
+            for wa_profile in response.json().get('items', []):
+                ca_cert = wa_profile.get('sslCaCertFile')
+                if ca_cert in cert_paths:
+                    usage_map[ca_cert].append(CertificateUsage(
+                        object_type='Web Acceleration Profile',
+                        object_name=wa_profile['name'],
+                        object_path=wa_profile['fullPath'],
+                        field_name='sslCaCertFile (Web Acceleration)',
+                        partition=partition
+                    ))
+        except Exception as e:
+            print(f"    ⚠️  Warning: Could not check Web Acceleration profiles in partition {partition}: {e}")
     
     def get_running_config(self) -> Dict[str, any]:
         """
