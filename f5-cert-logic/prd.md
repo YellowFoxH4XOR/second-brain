@@ -19,40 +19,7 @@ The script automatically discovers and processes certificates across **all admin
 - **Smart Defaults**: Uses appropriate default certificates for each partition
 - **Comprehensive Reporting**: Shows partition information for all certificates and usage
 
----
 
-## TLS Adapter Support
-
-The script includes a sophisticated TLS adapter to handle connectivity across different F5 BIG-IP versions:
-
-### TLS Version Strategies:
-- **`auto`** (default): Modern TLS (1.2/1.3) with automatic fallback to legacy if needed
-- **`legacy`**: Supports older TLS versions (1.0-1.2) for legacy F5 devices
-- **`tlsv1_2`**: Force TLS 1.2 only
-- **`tlsv1_3`**: Force TLS 1.3 only (where supported)
-- **`tlsv1_1`**: Force TLS 1.1 only (for very old devices)
-- **`tlsv1`**: Force TLS 1.0 only (for very old devices)
-
-### Device Compatibility:
-- **F5 v11.x-v12.x**: May require `--tls-version legacy` or specific TLS versions
-- **F5 v13.x+**: Typically work with `auto` mode (default)
-- **Older devices**: Use `--tls-version legacy` for best compatibility
-- **Custom cipher suites**: Support via `--ciphers` parameter
-
-### Usage Examples:
-```bash
-# Auto mode with fallback (recommended)
-python f5_cert_cleanup.py --host 192.168.1.100 --username admin
-
-# Legacy mode for older devices
-python f5_cert_cleanup.py --host 192.168.1.100 --username admin --tls-version legacy
-
-# Force specific TLS version
-python f5_cert_cleanup.py --host 192.168.1.100 --username admin --tls-version tlsv1_2
-
-# Custom cipher suite
-python f5_cert_cleanup.py --host 192.168.1.100 --username admin --ciphers "HIGH:!aNULL:!MD5"
-```
 
 ---
 

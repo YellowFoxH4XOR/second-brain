@@ -19,19 +19,14 @@ from datetime import datetime
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Import TLS adapter from main script
-try:
-    from f5_cert_cleanup import get_f5_compatible_session
-    TLS_ADAPTER_AVAILABLE = True
-except ImportError:
-    print("⚠️  Could not import TLS adapter, using standard requests session")
-    TLS_ADAPTER_AVAILABLE = False
-    def get_f5_compatible_session(tls_version='auto', ciphers=None, max_retries=3):
-        session = requests.Session()
-        session.verify = False
-        return session
+def create_standard_session():
+    """Create a standard requests session for F5 communication"""
+    session = requests.Session()
+    session.verify = False
+    session.timeout = (10, 30)  # (connect_timeout, read_timeout)
+    return session
 
-def test_f5_connection(host, username, password, tls_version='auto', ciphers=None):
+def test_f5_connection(host, username, password):
     """Test F5 BIG-IP connectivity and permissions"""
     
     if not host.startswith('https://'):
@@ -39,16 +34,10 @@ def test_f5_connection(host, username, password, tls_version='auto', ciphers=Non
     
     auth = (username, password)
     
-    # Create session with TLS adapter if available
-    if TLS_ADAPTER_AVAILABLE:
-        session = get_f5_compatible_session(tls_version=tls_version, ciphers=ciphers)
-        session.auth = auth
-        print(f"🔒 Using TLS version strategy: {tls_version}")
-    else:
-        session = requests.Session()
-        session.auth = auth
-        session.verify = False
-        print("🔒 Using standard TLS configuration")
+    # Create standard session
+    session = create_standard_session()
+    session.auth = auth
+    print("🔒 Using standard TLS configuration")
     
     print(f"🔌 Testing connection to F5 BIG-IP: {host}")
     print("=" * 60)
@@ -118,26 +107,14 @@ def test_f5_connection(host, username, password, tls_version='auto', ciphers=Non
     
     results = []
     
-    # Test initial connection and try TLS fallback if needed
+    # Test initial connection
     try:
         response = session.get(f"{host}/mgmt/tm/sys/version")
         response.raise_for_status()
+        print("✅ Initial connection successful")
     except Exception as e:
-        if TLS_ADAPTER_AVAILABLE and tls_version == 'auto':
-            print("⚠️  Initial connection failed, trying legacy TLS mode...")
-            session = get_f5_compatible_session(tls_version='legacy', ciphers=ciphers)
-            session.auth = auth
-            try:
-                response = session.get(f"{host}/mgmt/tm/sys/version")
-                response.raise_for_status()
-                print("✅ Connected using legacy TLS mode")
-                tls_version = 'legacy'
-            except Exception as e2:
-                print(f"❌ Failed to connect even with legacy TLS: {e2}")
-                return False
-        else:
-            print(f"❌ Failed to connect: {e}")
-            return False
+        print(f"❌ Failed to connect: {e}")
+        return False
     
     for test in tests:
         try:
@@ -262,13 +239,6 @@ Examples:
     parser.add_argument('--username', required=True, help='F5 username')
     parser.add_argument('--password', help='F5 password (will prompt if not provided)')
     
-    # TLS Configuration
-    parser.add_argument('--tls-version', default='auto',
-                       choices=['auto', 'legacy', 'tlsv1', 'tlsv1_1', 'tlsv1_2', 'tlsv1_3'],
-                       help='TLS version strategy (default: auto)')
-    parser.add_argument('--ciphers',
-                       help='Custom cipher suite string for TLS connections')
-    
     args = parser.parse_args()
     
     # Get password if not provided
@@ -276,13 +246,7 @@ Examples:
         args.password = getpass.getpass(f"Password for {args.username}@{args.host}: ")
     
     try:
-        success = test_f5_connection(
-            args.host, 
-            args.username, 
-            args.password, 
-            args.tls_version, 
-            args.ciphers
-        )
+        success = test_f5_connection(args.host, args.username, args.password)
         sys.exit(0 if success else 1)
         
     except KeyboardInterrupt:

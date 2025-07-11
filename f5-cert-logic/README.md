@@ -29,7 +29,7 @@ To disable optimization (for compatibility): `--disable-bulk-optimization`
 - **📄 Detailed Reporting**: Generates comprehensive HTML reports with actionable insights
 - **🔧 Flexible Targeting**: Support for single devices or batch operations across device fleets
 - **🌐 Multi-Partition Support**: Works seamlessly across all F5 administrative partitions
-- **🔒 TLS Compatibility**: Intelligent TLS version negotiation for devices with different TLS requirements
+
 
 ## 🔧 Critical Multi-Partition Fix: Operations Across ALL Partitions
 
@@ -284,24 +284,7 @@ bigip-dev-01,192.168.1.200,testuser,testpass
 
 **Note**: For security, leave password field empty in CSV and provide via command line or interactive prompt.
 
-### TLS Configuration
 
-```bash
-# Auto mode with fallback (default - recommended)
-python f5_cert_cleanup.py --host 192.168.1.100 --username admin --tls-version auto
-
-# Legacy mode for older F5 devices
-python f5_cert_cleanup.py --host old-bigip.local --username admin --tls-version legacy
-
-# Force specific TLS version
-python f5_cert_cleanup.py --host 192.168.1.100 --username admin --tls-version tlsv1_2
-
-# Custom cipher suite for special requirements
-python f5_cert_cleanup.py --host 192.168.1.100 --username admin --ciphers "HIGH:!aNULL:!MD5"
-
-# Batch mode with TLS configuration
-python f5_cert_cleanup.py --devices-csv devices.csv --username admin --tls-version legacy
-```
 
 ### Automatic File Naming
 
@@ -599,15 +582,7 @@ The script checks certificate usage in:
 - Check network connectivity
 - Verify F5 management interface is accessible
 - Confirm credentials are correct
-- Try different TLS version: `--tls-version legacy` for older devices
-
-**TLS/SSL Errors**:
-```bash
-[SSL: WRONG_VERSION_NUMBER] or [SSL: UNSUPPORTED_PROTOCOL]
-```
-- Use `--tls-version legacy` for older F5 devices (v11.x-v12.x)
-- Try `--tls-version tlsv1_2` for modern devices
-- Use `--ciphers "HIGH:!aNULL"` for custom cipher requirements
+- Ensure F5 management interface accepts HTTPS connections
 
 **Permission Errors**:
 ```bash
@@ -626,7 +601,6 @@ The script checks certificate usage in:
 ## 📚 Additional Resources
 
 - [Recovery Guide](RECOVERY_GUIDE.md) - Complete guide for using backup files to recover deleted certificates
-- [TLS Compatibility Guide](TLS_COMPATIBILITY.md) - Comprehensive guide for TLS configuration and troubleshooting
 - [Batch Processing Guide](BATCH_PROCESSING.md) - Complete guide for CSV batch processing across multiple devices
 - [Certificate Usage Guide](CERTIFICATE_USAGE_GUIDE.md) - Comprehensive guide to F5 certificate usage locations
 - [F5 iControl REST API Documentation](https://clouddocs.f5.com/api/bigip-tm/latest/)

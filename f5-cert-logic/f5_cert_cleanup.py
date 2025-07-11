@@ -5,15 +5,17 @@ F5 BIG-IP Certificate Cleanup Script
 This script automates the process of identifying, analyzing, and safely removing
 expired SSL certificates from F5 BIG-IP devices using the iControl REST API.
 
-Features:
-- Identify expiring/expired certificates
-- Check certificate usage across LTM/GTM objects
-- Generate HTML pre-deletion report
-- Safe deletion with dereferencing
-- Replace with default certificates where needed
+Key Features:
+- Multi-partition certificate discovery and cleanup
+- Comprehensive service impact analysis (Virtual Servers & GTM)
+- Bulk optimization for large-scale operations
+- Certificate type-based protection (bundles, defaults)
+- Detailed HTML reporting with failure tracking
+- Configuration diff reports with before/after comparison
+- Safe dereferencing with service status validation
 
 Author: Generated for Certificate Cleanup Automation
-Version: 1.0
+Version: 2.1 (Simplified - Standard TLS)
 """
 
 import requests
@@ -25,129 +27,24 @@ import os
 import argparse
 import getpass
 import csv
-import ssl
 import difflib
 from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from requests.adapters import HTTPAdapter
-from urllib3.util.ssl_ import create_urllib3_context
+from dataclasses import dataclass
 
 # Disable SSL warnings for self-signed certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-class F5TLSAdapter(HTTPAdapter):
+def create_standard_session(max_retries=3):
     """
-    Custom TLS adapter for F5 BIG-IP devices to handle different TLS versions
-    
-    F5 devices across different versions may require specific TLS versions:
-    - Older devices (v11.x-v12.x): May require TLSv1.0/TLSv1.1 support
-    - Newer devices (v13.x+): Typically use TLSv1.2/TLSv1.3
-    - Some devices have specific cipher requirements
-    """
-    
-    def __init__(self, tls_version=None, ciphers=None, **kwargs):
-        """
-        Initialize TLS adapter with specific TLS configuration
-        
-        Args:
-            tls_version: Specific TLS version ('auto', 'tlsv1', 'tlsv1_1', 'tlsv1_2', 'tlsv1_3')
-            ciphers: Custom cipher suite string
-        """
-        self.tls_version = tls_version or 'auto'
-        self.ciphers = ciphers
-        super().__init__(**kwargs)
-    
-    def init_poolmanager(self, *args, **kwargs):
-        """Initialize pool manager with custom TLS context"""
-        # Create custom SSL context
-        context = create_urllib3_context()
-        
-        # Configure TLS version based on specified version
-        if self.tls_version == 'auto':
-            # Auto mode: try modern TLS first, fall back if needed
-            try:
-                context.minimum_version = ssl.TLSVersion.TLSv1_2
-                context.maximum_version = ssl.TLSVersion.TLSv1_3
-            except AttributeError:
-                # Fallback for older Python versions
-                context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
-        
-        elif self.tls_version == 'tlsv1':
-            try:
-                context.minimum_version = ssl.TLSVersion.TLSv1
-                context.maximum_version = ssl.TLSVersion.TLSv1
-            except AttributeError:
-                context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1_1 | ssl.OP_NO_TLSv1_2
-        
-        elif self.tls_version == 'tlsv1_1':
-            try:
-                context.minimum_version = ssl.TLSVersion.TLSv1_1
-                context.maximum_version = ssl.TLSVersion.TLSv1_1
-            except AttributeError:
-                context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_2
-        
-        elif self.tls_version == 'tlsv1_2':
-            try:
-                context.minimum_version = ssl.TLSVersion.TLSv1_2
-                context.maximum_version = ssl.TLSVersion.TLSv1_2
-            except AttributeError:
-                context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
-        
-        elif self.tls_version == 'tlsv1_3':
-            try:
-                context.minimum_version = ssl.TLSVersion.TLSv1_3
-                context.maximum_version = ssl.TLSVersion.TLSv1_3
-            except AttributeError:
-                # TLSv1.3 not available in older Python, fall back to TLSv1.2
-                context.minimum_version = ssl.TLSVersion.TLSv1_2
-                context.maximum_version = ssl.TLSVersion.TLSv1_2
-        
-        elif self.tls_version == 'legacy':
-            # Legacy mode: support older TLS versions for old F5 devices
-            try:
-                context.minimum_version = ssl.TLSVersion.TLSv1
-                context.maximum_version = ssl.TLSVersion.TLSv1_2
-            except AttributeError:
-                context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3
-        
-        # Set custom ciphers if provided
-        if self.ciphers:
-            try:
-                context.set_ciphers(self.ciphers)
-            except Exception as e:
-                print(f"⚠️  Warning: Failed to set custom ciphers: {e}")
-        
-        # Disable hostname verification for F5 devices (often use IP addresses)
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        
-        kwargs['ssl_context'] = context
-        return super().init_poolmanager(*args, **kwargs)
-
-def get_f5_compatible_session(tls_version='auto', ciphers=None, max_retries=3):
-    """
-    Create a requests session optimized for F5 BIG-IP devices
+    Create a standard requests session for F5 BIG-IP devices
     
     Args:
-        tls_version: TLS version strategy ('auto', 'legacy', 'tlsv1_2', etc.)
-        ciphers: Custom cipher suite
         max_retries: Number of retry attempts
         
     Returns:
         Configured requests session
     """
     session = requests.Session()
-    
-    # Mount the custom TLS adapter
-    adapter = F5TLSAdapter(
-        tls_version=tls_version, 
-        ciphers=ciphers,
-        max_retries=max_retries
-    )
-    
-    session.mount('https://', adapter)
-    session.mount('http://', adapter)
     
     # Set reasonable timeouts
     session.timeout = (10, 30)  # (connect_timeout, read_timeout)
@@ -170,6 +67,7 @@ class CertificateInfo:
     issuer: str = ""
     corresponding_key: str = ""  # Associated SSL key name
     partition: str = "Common"  # Partition where certificate resides
+    certificate_type: str = ""  # Certificate type (e.g., "Certificate Bundle", "Certificate")
 
 @dataclass
 class CertificateUsage:
@@ -265,8 +163,7 @@ class F5CertificateCleanup:
     """Main class for F5 certificate cleanup operations"""
     
     def __init__(self, host: str, username: str, password: str, expiry_days: int = 30, 
-                 test_connection: bool = True, tls_version: str = 'auto', ciphers: str = None,
-                 use_bulk_optimization: bool = True):
+                 test_connection: bool = True, use_bulk_optimization: bool = True):
         """
         Initialize F5 connection and configuration
         
@@ -276,8 +173,6 @@ class F5CertificateCleanup:
             password: F5 password
             expiry_days: Days ahead to consider certificates as "expiring soon"
             test_connection: Whether to test connection during initialization
-            tls_version: TLS version strategy ('auto', 'legacy', 'tlsv1_2', etc.)
-            ciphers: Custom cipher suite string
             use_bulk_optimization: Whether to use bulk optimization for certificate usage checking
         """
         self.original_host = host
@@ -287,11 +182,9 @@ class F5CertificateCleanup:
         
         self.auth = (username, password)
         self.expiry_days = expiry_days
-        self.tls_version = tls_version
-        self.ciphers = ciphers
         self.use_bulk_optimization = use_bulk_optimization
         
-        # Create session with TLS adapter
+        # Create session
         self.session = self._create_f5_session()
         
         # Cache for module availability checks
@@ -303,28 +196,12 @@ class F5CertificateCleanup:
             try:
                 self._test_connection()
             except Exception as e:
-                # Try with legacy TLS if auto mode fails
-                if self.tls_version == 'auto':
-                    print(f"⚠️  Initial connection failed, trying legacy TLS mode...")
-                    self.tls_version = 'legacy'
-                    self.session = self._create_f5_session()
-                    try:
-                        self._test_connection()
-                        print(f"✅ Connected using legacy TLS mode")
-                    except Exception as e2:
-                        print(f"❌ Failed to connect even with legacy TLS: {e2}")
-                        sys.exit(1)
-                else:
-                    print(f"❌ Failed to connect to F5 device: {e}")
-                    sys.exit(1)
+                print(f"❌ Failed to connect to F5 device: {e}")
+                sys.exit(1)
     
     def _create_f5_session(self):
-        """Create a session with F5-compatible TLS settings"""
-        session = get_f5_compatible_session(
-            tls_version=self.tls_version,
-            ciphers=self.ciphers,
-            max_retries=3
-        )
+        """Create a session for F5 API communication"""
+        session = create_standard_session(max_retries=3)
         session.auth = self.auth
         return session
     
@@ -480,7 +357,8 @@ class F5CertificateCleanup:
                             is_expiring_soon=0 <= days_until_expiry <= self.expiry_days,
                             subject=cert_data.get('subject', ''),
                             issuer=cert_data.get('issuer', ''),
-                            partition=cert_partition
+                            partition=cert_partition,
+                            certificate_type=cert_data.get('certificateType', '')
                         )
                         
                         certificates.append(cert_info)
@@ -524,7 +402,8 @@ class F5CertificateCleanup:
                             is_expiring_soon=0 <= days_until_expiry <= self.expiry_days,
                             subject=cert_data.get('subject', ''),
                             issuer=cert_data.get('issuer', ''),
-                            partition=cert_partition
+                            partition=cert_partition,
+                            certificate_type=cert_data.get('certificateType', '')
                         )
                         
                         certificates.append(cert_info)
@@ -900,13 +779,14 @@ class F5CertificateCleanup:
         unused_expired = []
         used_expired = []
         protected_expired = []
+        blocked_by_active_services = []
         
         # Filter out default certificates first (they are protected)
         non_protected_expired = []
         for cert in expired_certs:
-            if self.is_default_certificate(cert.name, cert.full_path):
+            if self.is_default_certificate(cert.name, cert.full_path, cert.certificate_type):
                 protected_expired.append(cert)
-                print(f"  🛡️  Default certificate protected from deletion: {cert.name} (partition: {cert.partition})")
+                print(f"  🛡️  Default certificate protected from deletion: {cert.name} (partition: {cert.partition}, type: {cert.certificate_type})")
             else:
                 non_protected_expired.append(cert)
         
@@ -915,32 +795,42 @@ class F5CertificateCleanup:
             if self.use_bulk_optimization:
                 print(f"🚀 Using bulk optimization for {len(non_protected_expired)} non-protected expired certificates...")
                 usage_map = self.check_certificate_usage_bulk(non_protected_expired, partitions)
-                
-                # Process results
-                for cert in non_protected_expired:
-                    usage = usage_map.get(cert.full_path, [])
-                    if not usage:
-                        unused_expired.append(cert)
-                        print(f"  ✅ {cert.name} - Not in use (safe to delete)")
-                    else:
-                        used_expired.append((cert, usage))
-                        print(f"  ⚠️  {cert.name} - In use by {len(usage)} object(s)")
             else:
                 print(f"📋 Using individual certificate checking for {len(non_protected_expired)} certificates...")
+                usage_map = {}
                 for cert in non_protected_expired:
                     print(f"  📋 Checking usage for: {cert.name} (partition: {cert.partition})")
                     usage = self.check_certificate_usage(cert.full_path, partitions)
-                    
-                    if not usage:
-                        unused_expired.append(cert)
-                        print(f"    ✅ Not in use - safe to delete")
+                    usage_map[cert.full_path] = usage
+            
+            # 🚨 NEW: Comprehensive service impact analysis
+            print(f"\n🚨 Performing comprehensive service impact analysis...")
+            service_impact_analysis = self.analyze_service_impact(non_protected_expired, usage_map, partitions)
+            
+            # Process results with service impact consideration
+            for cert in non_protected_expired:
+                usage = usage_map.get(cert.full_path, [])
+                impact = service_impact_analysis.get(cert.full_path, {})
+                
+                if not usage:
+                    unused_expired.append(cert)
+                    print(f"  ✅ {cert.name} - Not in use (safe to delete)")
+                else:
+                    # Check if blocked by active services
+                    active_services = impact.get('active_services', [])
+                    if active_services:
+                        blocked_by_active_services.append((cert, usage, active_services))
+                        print(f"  🚫 {cert.name} - BLOCKED by {len(active_services)} active service(s)")
+                        for service in active_services:
+                            print(f"    ⚠️  Active {service['type']}: {service['name']} (status: {service['status']})")
                     else:
                         used_expired.append((cert, usage))
-                        print(f"    ⚠️  In use by {len(usage)} object(s) across partitions")
+                        print(f"  ⚠️  {cert.name} - In use by {len(usage)} object(s) (all services inactive)")
         else:
             print("ℹ️  No non-protected expired certificates to check")
         
-        return CleanupReport(
+        # Create extended cleanup report
+        report = CleanupReport(
             device_hostname=self.original_host,
             device_ip=self.host,
             total_certificates=len(certificates),
@@ -951,6 +841,441 @@ class F5CertificateCleanup:
             protected_expired=protected_expired,
             scan_timestamp=datetime.datetime.now()
         )
+        
+        # Add service impact data as additional attribute
+        report.blocked_by_active_services = blocked_by_active_services
+        
+        return report
+    
+    def analyze_service_impact(self, certificates: List[CertificateInfo], usage_map: Dict[str, List[CertificateUsage]], 
+                             partitions: List[str]) -> Dict[str, Dict[str, any]]:
+        """
+        Comprehensive analysis of service impact for certificate cleanup
+        
+        This method implements the corrected logic:
+        1. Find all Virtual Servers and their corresponding profiles
+        2. Find all expired certificates and profiles they use
+        3. Match these to identify affected Virtual Servers or Wide IPs
+        4. Check service status - only allow deletion if services are down
+        
+        Args:
+            certificates: List of expired certificates to analyze
+            usage_map: Map of certificate paths to their usage locations
+            partitions: List of partitions to check
+            
+        Returns:
+            Dictionary mapping certificate paths to service impact analysis
+        """
+        print("  🔍 Step 1: Discovering all Virtual Servers and their SSL profiles...")
+        
+        # Step 1: Build comprehensive map of Virtual Servers and their SSL profiles
+        virtual_server_profiles = self._discover_virtual_server_ssl_profiles(partitions)
+        
+        print(f"    📊 Found {len(virtual_server_profiles)} Virtual Server(s) with SSL profiles")
+        
+        # Step 2: Build comprehensive map of GTM objects if available
+        gtm_object_monitors = {}
+        if self.is_gtm_available():
+            print("  🌐 Step 2: Discovering GTM objects and their monitors...")
+            gtm_object_monitors = self._discover_gtm_object_monitors(partitions)
+            print(f"    📊 Found {len(gtm_object_monitors)} GTM object(s) with HTTPS monitors")
+        
+        # Step 3: Analyze impact for each certificate
+        print("  🔗 Step 3: Matching expired certificates to affected services...")
+        
+        service_impact = {}
+        
+        for cert in certificates:
+            cert_path = cert.full_path
+            usage_list = usage_map.get(cert_path, [])
+            
+            impact_analysis = {
+                'certificate': cert,
+                'usage_count': len(usage_list),
+                'affected_profiles': [],
+                'affected_virtual_servers': [],
+                'affected_gtm_objects': [],
+                'active_services': [],
+                'inactive_services': [],
+                'blocking_analysis': 'safe'  # 'safe', 'blocked', 'no_usage'
+            }
+            
+            if not usage_list:
+                impact_analysis['blocking_analysis'] = 'no_usage'
+                service_impact[cert_path] = impact_analysis
+                continue
+            
+            # Analyze each usage location
+            for usage in usage_list:
+                profile_info = {
+                    'type': usage.object_type,
+                    'name': usage.object_name,
+                    'partition': usage.partition,
+                    'field': usage.field_name
+                }
+                impact_analysis['affected_profiles'].append(profile_info)
+                
+                # Check if this profile is used by any Virtual Servers
+                if usage.object_type in ['Client-SSL Profile', 'Server-SSL Profile']:
+                    affected_vs = self._find_virtual_servers_using_profile(
+                        usage.object_name, usage.object_type, usage.partition, virtual_server_profiles
+                    )
+                    
+                    for vs_info in affected_vs:
+                        vs_status = self._get_comprehensive_virtual_server_status(vs_info['name'], vs_info['partition'])
+                        
+                        service_info = {
+                            'type': 'Virtual Server',
+                            'name': vs_info['name'],
+                            'partition': vs_info['partition'],
+                            'status': vs_status['status_text'],
+                            'enabled': vs_status['enabled'],
+                            'available': vs_status['available'],
+                            'safe_for_cert_cleanup': vs_status['safe_for_cert_cleanup']
+                        }
+                        
+                        impact_analysis['affected_virtual_servers'].append(service_info)
+                        
+                        if vs_status['safe_for_cert_cleanup']:
+                            impact_analysis['inactive_services'].append(service_info)
+                        else:
+                            impact_analysis['active_services'].append(service_info)
+                
+                # Check if this monitor is used by any GTM objects
+                elif usage.object_type == 'GTM HTTPS Monitor' and self.is_gtm_available():
+                    affected_gtm = self._find_gtm_objects_using_monitor_comprehensive(
+                        usage.object_name, usage.partition, gtm_object_monitors
+                    )
+                    
+                    for gtm_info in affected_gtm:
+                        gtm_status = self._get_comprehensive_gtm_object_status(gtm_info['name'], gtm_info['type'], gtm_info['partition'])
+                        
+                        service_info = {
+                            'type': f"GTM {gtm_info['type']}",
+                            'name': gtm_info['name'],
+                            'partition': gtm_info['partition'],
+                            'status': gtm_status['status_text'],
+                            'enabled': gtm_status['enabled'],
+                            'available': gtm_status['available'],
+                            'safe_for_cert_cleanup': gtm_status['safe_for_cert_cleanup']
+                        }
+                        
+                        impact_analysis['affected_gtm_objects'].append(service_info)
+                        
+                        if gtm_status['safe_for_cert_cleanup']:
+                            impact_analysis['inactive_services'].append(service_info)
+                        else:
+                            impact_analysis['active_services'].append(service_info)
+            
+            # Determine overall blocking status
+            if impact_analysis['active_services']:
+                impact_analysis['blocking_analysis'] = 'blocked'
+            else:
+                impact_analysis['blocking_analysis'] = 'safe'
+            
+            service_impact[cert_path] = impact_analysis
+            
+            # Log analysis results
+            if impact_analysis['active_services']:
+                print(f"    🚫 {cert.name}: BLOCKED by {len(impact_analysis['active_services'])} active service(s)")
+            elif impact_analysis['affected_virtual_servers'] or impact_analysis['affected_gtm_objects']:
+                total_services = len(impact_analysis['affected_virtual_servers']) + len(impact_analysis['affected_gtm_objects'])
+                print(f"    ✅ {cert.name}: Safe - {total_services} service(s) are inactive")
+            else:
+                print(f"    ℹ️  {cert.name}: No Virtual Server/GTM impact")
+        
+        return service_impact
+    
+    def _discover_virtual_server_ssl_profiles(self, partitions: List[str]) -> Dict[str, Dict[str, any]]:
+        """
+        Discover all Virtual Servers and their SSL profile associations
+        
+        Returns:
+            Dictionary mapping VS full path to VS info with SSL profiles
+        """
+        virtual_servers = {}
+        
+        for partition in partitions:
+            try:
+                response = self._make_request('GET', f'/mgmt/tm/ltm/virtual?$filter=partition eq {partition}')
+                
+                for vs in response.json().get('items', []):
+                    vs_name = vs.get('name')
+                    vs_full_path = vs.get('fullPath')
+                    profiles = vs.get('profiles', {})
+                    
+                    ssl_profiles = {
+                        'client_ssl': [],
+                        'server_ssl': []
+                    }
+                    
+                    # Extract SSL profiles
+                    for profile_path, profile_config in profiles.items():
+                        context = profile_config.get('context', '')
+                        if context == 'clientside':
+                            ssl_profiles['client_ssl'].append({
+                                'name': profile_path.split('/')[-1],
+                                'full_path': profile_path,
+                                'partition': profile_path.split('/')[1] if profile_path.startswith('/') else partition
+                            })
+                        elif context == 'serverside':
+                            ssl_profiles['server_ssl'].append({
+                                'name': profile_path.split('/')[-1],
+                                'full_path': profile_path,
+                                'partition': profile_path.split('/')[1] if profile_path.startswith('/') else partition
+                            })
+                    
+                    # Only store VS if it has SSL profiles
+                    if ssl_profiles['client_ssl'] or ssl_profiles['server_ssl']:
+                        virtual_servers[vs_full_path] = {
+                            'name': vs_name,
+                            'partition': partition,
+                            'full_path': vs_full_path,
+                            'ssl_profiles': ssl_profiles
+                        }
+                        
+            except Exception as e:
+                print(f"    ⚠️  Warning: Could not discover Virtual Servers in partition {partition}: {e}")
+        
+        return virtual_servers
+    
+    def _discover_gtm_object_monitors(self, partitions: List[str]) -> Dict[str, Dict[str, any]]:
+        """
+        Discover all GTM objects and their HTTPS monitor associations
+        
+        Returns:
+            Dictionary mapping GTM object path to object info with monitors
+        """
+        gtm_objects = {}
+        
+        if not self.is_gtm_available():
+            return gtm_objects
+        
+        gtm_types = ['pool', 'wideip']
+        record_types = ['a', 'aaaa', 'cname', 'mx', 'naptr', 'srv']
+        
+        for partition in partitions:
+            for gtm_type in gtm_types:
+                for record_type in record_types:
+                    try:
+                        response = self._make_request('GET', f'/mgmt/tm/gtm/{gtm_type}/{record_type}?$filter=partition eq {partition}')
+                        
+                        for obj in response.json().get('items', []):
+                            obj_name = obj.get('name')
+                            obj_full_path = obj.get('fullPath')
+                            
+                            # Extract HTTPS monitors
+                            https_monitors = []
+                            monitor_config = obj.get('monitor', '')
+                            
+                            if 'https' in monitor_config.lower():
+                                # Parse monitor configuration
+                                monitor_parts = monitor_config.split()
+                                for part in monitor_parts:
+                                    if 'https' in part.lower() and part.startswith('/'):
+                                        https_monitors.append({
+                                            'name': part.split('/')[-1],
+                                            'full_path': part,
+                                            'partition': part.split('/')[1] if part.startswith('/') else partition
+                                        })
+                            
+                            # Only store if it has HTTPS monitors
+                            if https_monitors:
+                                gtm_objects[obj_full_path] = {
+                                    'name': obj_name,
+                                    'type': f"{record_type.upper()} {gtm_type.title()}",
+                                    'partition': partition,
+                                    'full_path': obj_full_path,
+                                    'https_monitors': https_monitors
+                                }
+                                
+                    except Exception as e:
+                        # Expected for non-existent record types
+                        continue
+        
+        return gtm_objects
+    
+    def _find_virtual_servers_using_profile(self, profile_name: str, profile_type: str, profile_partition: str, 
+                                          virtual_server_profiles: Dict[str, Dict[str, any]]) -> List[Dict[str, str]]:
+        """
+        Find Virtual Servers that use a specific SSL profile from pre-discovered data
+        
+        Returns:
+            List of Virtual Server info dictionaries
+        """
+        affected_vs = []
+        profile_full_path = f"/{profile_partition}/{profile_name}"
+        
+        for vs_path, vs_info in virtual_server_profiles.items():
+            ssl_profiles = vs_info['ssl_profiles']
+            
+            # Check both client-ssl and server-ssl profiles
+            profile_list = []
+            if profile_type == 'Client-SSL Profile':
+                profile_list = ssl_profiles['client_ssl']
+            elif profile_type == 'Server-SSL Profile':
+                profile_list = ssl_profiles['server_ssl']
+            
+            for profile in profile_list:
+                if (profile['full_path'] == profile_full_path or 
+                    profile['name'] == profile_name):
+                    affected_vs.append({
+                        'name': vs_info['name'],
+                        'partition': vs_info['partition'],
+                        'full_path': vs_info['full_path']
+                    })
+                    break
+        
+        return affected_vs
+    
+    def _find_gtm_objects_using_monitor_comprehensive(self, monitor_name: str, monitor_partition: str, 
+                                                    gtm_object_monitors: Dict[str, Dict[str, any]]) -> List[Dict[str, str]]:
+        """
+        Find GTM objects that use a specific HTTPS monitor from pre-discovered data
+        
+        Returns:
+            List of GTM object info dictionaries
+        """
+        affected_gtm = []
+        monitor_full_path = f"/{monitor_partition}/{monitor_name}"
+        
+        for gtm_path, gtm_info in gtm_object_monitors.items():
+            for monitor in gtm_info['https_monitors']:
+                if (monitor['full_path'] == monitor_full_path or 
+                    monitor['name'] == monitor_name):
+                    affected_gtm.append({
+                        'name': gtm_info['name'],
+                        'type': gtm_info['type'],
+                        'partition': gtm_info['partition'],
+                        'full_path': gtm_info['full_path']
+                    })
+                    break
+        
+        return affected_gtm
+    
+    def _get_comprehensive_virtual_server_status(self, vs_name: str, vs_partition: str) -> Dict[str, any]:
+        """
+        Get comprehensive Virtual Server status for certificate cleanup safety
+        
+        Returns:
+            Dictionary with detailed status including safety assessment
+        """
+        try:
+            vs_path = f"~{vs_partition}~{vs_name}".replace('/', '~')
+            response = self._make_request('GET', f'/mgmt/tm/ltm/virtual/{vs_path}')
+            vs_config = response.json()
+            
+            # Check enabled/disabled state
+            enabled = vs_config.get('enabled', True)
+            disabled = vs_config.get('disabled', False)
+            is_enabled = enabled and not disabled
+            
+            # Get availability state from stats
+            availability_state = 'unknown'
+            is_available = True  # Conservative default
+            
+            try:
+                stats_response = self._make_request('GET', f'/mgmt/tm/ltm/virtual/{vs_path}/stats')
+                stats = stats_response.json()
+                
+                entries = stats.get('entries', {})
+                for entry_key, entry_data in entries.items():
+                    nested_stats = entry_data.get('nestedStats', {}).get('entries', {})
+                    if 'status.availabilityState' in nested_stats:
+                        availability_state = nested_stats['status.availabilityState']['description']
+                        break
+                
+                # Only 'offline' and 'down' states are safe for certificate cleanup
+                safe_availability_states = ['offline', 'down', 'disabled']
+                is_available = availability_state.lower() not in safe_availability_states
+                
+            except Exception:
+                # If we can't get stats, assume available (conservative)
+                pass
+            
+            # Certificate cleanup is safe ONLY if VS is disabled AND offline/down
+            safe_for_cert_cleanup = not is_enabled and not is_available
+            
+            # Generate descriptive status text
+            if not is_enabled and not is_available:
+                status_text = f"Disabled & {availability_state}"
+            elif not is_enabled:
+                status_text = f"Disabled (availability: {availability_state})"
+            elif not is_available:
+                status_text = f"Enabled but {availability_state}"
+            else:
+                status_text = f"Active (enabled & {availability_state})"
+            
+            return {
+                'enabled': is_enabled,
+                'available': is_available,
+                'availability_state': availability_state,
+                'safe_for_cert_cleanup': safe_for_cert_cleanup,
+                'status_text': status_text
+            }
+            
+        except Exception as e:
+            # If we can't determine status, assume unsafe (conservative)
+            return {
+                'enabled': True,
+                'available': True,
+                'availability_state': 'unknown',
+                'safe_for_cert_cleanup': False,
+                'status_text': f"Status check failed: {e}"
+            }
+    
+    def _get_comprehensive_gtm_object_status(self, obj_name: str, obj_type: str, obj_partition: str) -> Dict[str, any]:
+        """
+        Get comprehensive GTM object status for certificate cleanup safety
+        
+        Returns:
+            Dictionary with detailed status including safety assessment
+        """
+        try:
+            # Parse object type to get GTM type and record type
+            type_parts = obj_type.lower().split()
+            if len(type_parts) >= 2:
+                record_type = type_parts[0]  # e.g., 'a', 'aaaa'
+                gtm_type = type_parts[1]     # e.g., 'pool', 'wideip'
+            else:
+                return {
+                    'enabled': True,
+                    'available': True,
+                    'safe_for_cert_cleanup': False,
+                    'status_text': "Unknown GTM object type"
+                }
+            
+            obj_path = f"~{obj_partition}~{obj_name}".replace('/', '~')
+            response = self._make_request('GET', f'/mgmt/tm/gtm/{gtm_type}/{record_type}/{obj_path}')
+            obj_config = response.json()
+            
+            # Check enabled/disabled state
+            enabled = obj_config.get('enabled', True)
+            disabled = obj_config.get('disabled', False)
+            is_enabled = enabled and not disabled
+            
+            # For GTM objects, if enabled assume available (GTM stats are complex)
+            # Certificate cleanup is safe ONLY if GTM object is disabled
+            safe_for_cert_cleanup = not is_enabled
+            
+            # Generate descriptive status text
+            status_text = "Enabled" if is_enabled else "Disabled"
+            
+            return {
+                'enabled': is_enabled,
+                'available': is_enabled,  # Simplified for GTM
+                'safe_for_cert_cleanup': safe_for_cert_cleanup,
+                'status_text': status_text
+            }
+            
+        except Exception as e:
+            # If we can't determine status, assume unsafe (conservative)
+            return {
+                'enabled': True,
+                'available': True,
+                'safe_for_cert_cleanup': False,
+                'status_text': f"Status check failed: {e}"
+            }
     
     def generate_html_report(self, report: CleanupReport, output_file: str = None):
         """
@@ -970,6 +1295,9 @@ class F5CertificateCleanup:
         
         print(f"📄 Generating HTML report: {output_file}")
         
+        # Get blocked services information if available
+        blocked_by_services = getattr(report, 'blocked_by_active_services', [])
+        
         html_content = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -988,11 +1316,14 @@ class F5CertificateCleanup:
         .cert-table tr:nth-child(even) {{ background-color: #f9f9f9; }}
         .expired {{ background-color: #ffebee !important; }}
         .safe-delete {{ background-color: #e8f5e8 !important; }}
+        .blocked {{ background-color: #ffeaa7 !important; }}
         .usage-details {{ background: #f8f9fa; padding: 10px; border-left: 4px solid #007acc; margin: 5px 0; }}
+        .service-details {{ background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin: 5px 0; }}
         .badge {{ padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }}
         .badge-danger {{ background: #dc3545; color: white; }}
         .badge-warning {{ background: #ffc107; color: black; }}
         .badge-success {{ background: #28a745; color: white; }}
+        .badge-blocked {{ background: #e17055; color: white; }}
         .timestamp {{ color: #666; font-style: italic; }}
     </style>
 </head>
@@ -1009,6 +1340,7 @@ class F5CertificateCleanup:
  
                 <li><strong>Safe to Delete (unused expired):</strong> {len(report.unused_expired)}</li>
                 <li><strong>Require Dereferencing (used expired):</strong> {len(report.used_expired)}</li>
+                <li><strong>Blocked by Active Services:</strong> {len(blocked_by_services)}</li>
                 <li><strong>Protected from Deletion (default certificates):</strong> {len(report.protected_expired)}</li>
             </ul>
             <p class="timestamp">Report generated: {report.scan_timestamp.strftime('%Y-%m-%d %H:%M:%S')}</p>
@@ -1018,25 +1350,28 @@ class F5CertificateCleanup:
         <p>These expired certificates are not referenced by any F5 objects and can be safely deleted:</p>
         <table class="cert-table">
             <thead>
-                <tr>
-                    <th>Certificate Name</th>
-                    <th>Partition</th>
-                    <th>Corresponding Key</th>
-                    <th>Expiration Date</th>
-                    <th>Days Expired</th>
-                    <th>Subject</th>
-                    <th>Action</th>
-                </tr>
+                                        <tr>
+                            <th>Certificate Name</th>
+                            <th>Partition</th>
+                            <th>Type</th>
+                            <th>Corresponding Key</th>
+                            <th>Expiration Date</th>
+                            <th>Days Expired</th>
+                            <th>Subject</th>
+                            <th>Action</th>
+                        </tr>
             </thead>
             <tbody>
 """
         
         for cert in report.unused_expired:
             key_info = cert.corresponding_key if cert.corresponding_key else "❌ No key found"
+            cert_type_display = cert.certificate_type if cert.certificate_type else "Unknown"
             html_content += f"""
                 <tr class="safe-delete">
                     <td>{cert.name}</td>
                     <td>{cert.partition}</td>
+                    <td>{cert_type_display}</td>
                     <td>{key_info}</td>
                     <td>{cert.expiration_date.strftime('%Y-%m-%d %H:%M:%S')}</td>
                     <td>{abs(cert.days_until_expiry)}</td>
@@ -1049,35 +1384,73 @@ class F5CertificateCleanup:
             </tbody>
         </table>
         
+        <h2>🚫 Certificates Blocked by Active Services</h2>
+        <p>These expired certificates cannot be deleted because they are used by active Virtual Servers or GTM objects:</p>
+"""
+        
+        if blocked_by_services:
+            for cert, usage_list, active_services in blocked_by_services:
+                key_info = cert.corresponding_key if cert.corresponding_key else "❌ No key found"
+                html_content += f"""
+        <div class="service-details">
+            <h4>🚫 {cert.name} (Partition: {cert.partition})</h4>
+            <p><strong>Expiration:</strong> {cert.expiration_date.strftime('%Y-%m-%d %H:%M:%S')} 
+               ({abs(cert.days_until_expiry)} days expired)</p>
+            <p><strong>Subject:</strong> {cert.subject}</p>
+            <p><strong>Corresponding Key:</strong> {key_info}</p>
+            <p><strong>BLOCKED by {len(active_services)} active service(s):</strong></p>
+            <ul>
+"""
+                for service in active_services:
+                    html_content += f"""
+                <li><strong>{service['type']}:</strong> {service['name']} (partition: {service['partition']}) - Status: {service['status']}</li>
+"""
+                html_content += """
+            </ul>
+            <p><strong>💡 Resolution:</strong> Disable the above services during a maintenance window to allow certificate cleanup.</p>
+        </div>
+"""
+        else:
+            html_content += """
+        <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; border: 1px solid #c3e6cb;">
+            <p>✅ No certificates are blocked by active services.</p>
+        </div>
+"""
+        
+        html_content += """
+        
         <h2>🛡️ Protected Certificates (Default)</h2>
         <p>These expired default certificates are protected from deletion and shown for informational purposes only:</p>
         <table class="cert-table">
             <thead>
-                <tr>
-                    <th>Certificate Name</th>
-                    <th>Partition</th>
-                    <th>Corresponding Key</th>
-                    <th>Expiration Date</th>
-                    <th>Days Expired</th>
-                    <th>Subject</th>
-                    <th>Protection Status</th>
-                </tr>
+                                        <tr>
+                            <th>Certificate Name</th>
+                            <th>Partition</th>
+                            <th>Type</th>
+                            <th>Corresponding Key</th>
+                            <th>Expiration Date</th>
+                            <th>Days Expired</th>
+                            <th>Subject</th>
+                            <th>Protection Status</th>
+                        </tr>
             </thead>
             <tbody>
 """
         
         for cert in report.protected_expired:
             key_info = cert.corresponding_key if cert.corresponding_key else "❌ No key found"
+            cert_type_display = cert.certificate_type if cert.certificate_type else "Unknown"
             html_content += f"""
-                <tr style="background-color: #e1f5fe !important;">
-                    <td>{cert.name}</td>
-                    <td>{cert.partition}</td>
-                    <td>{key_info}</td>
-                    <td>{cert.expiration_date.strftime('%Y-%m-%d %H:%M:%S')}</td>
-                    <td>{abs(cert.days_until_expiry)}</td>
-                    <td>{cert.subject}</td>
-                    <td><span class="badge" style="background: #1976d2; color: white;">Protected</span></td>
-                </tr>
+                                  <tr style="background-color: #e1f5fe !important;">
+                      <td>{cert.name}</td>
+                      <td>{cert.partition}</td>
+                      <td>{cert_type_display}</td>
+                      <td>{key_info}</td>
+                      <td>{cert.expiration_date.strftime('%Y-%m-%d %H:%M:%S')}</td>
+                      <td>{abs(cert.days_until_expiry)}</td>
+                      <td>{cert.subject}</td>
+                      <td><span class="badge" style="background: #1976d2; color: white;">Protected</span></td>
+                  </tr>
 """
         
         html_content += """
@@ -1263,378 +1636,13 @@ class F5CertificateCleanup:
             # Fall back to Common default as last resort
             return "/Common/default.crt", "/Common/default.key"
     
-    def check_virtual_server_status(self, usage: CertificateUsage) -> bool:
-        """
-        Check if any Virtual Servers using SSL profiles with this certificate are active
-        
-        Args:
-            usage: CertificateUsage object for SSL profile
-            
-        Returns:
-            True if safe to proceed (no active Virtual Servers), False if blocked
-        """
-        if usage.object_type not in ['Client-SSL Profile', 'Server-SSL Profile']:
-            return True  # Not an SSL profile, no Virtual Server check needed
-        
-        try:
-            print(f"    🔍 Checking Virtual Servers using {usage.object_type}: {usage.object_name}")
-            
-            # Find Virtual Servers using this SSL profile
-            virtual_servers = self._find_virtual_servers_using_ssl_profile(usage.object_name, usage.object_type, usage.partition)
-            
-            if not virtual_servers:
-                print(f"    ✅ No Virtual Servers found using this SSL profile")
-                return True
-            
-            print(f"    📊 Found {len(virtual_servers)} Virtual Server(s) using this SSL profile")
-            
-            # Check status of each Virtual Server
-            unsafe_count = 0
-            for vs_name, vs_partition in virtual_servers:
-                vs_status = self._get_virtual_server_status(vs_name, vs_partition)
-                # A Virtual Server is considered unsafe if it's enabled OR if its availability is not in safe states
-                # This includes 'unknown' state which should block certificate deletion
-                if vs_status['enabled'] or vs_status['available']:
-                    unsafe_count += 1
-                    status_reason = []
-                    if vs_status['enabled']:
-                        status_reason.append("enabled")
-                    if vs_status['available']:
-                        status_reason.append("available/unknown state")
-                    print(f"      ⚠️  Virtual Server {vs_name} is UNSAFE for cert deletion ({', '.join(status_reason)})")
-                else:
-                    print(f"      ✅ Virtual Server {vs_name} is safe (disabled and offline/down)")
-            
-            if unsafe_count > 0:
-                print(f"    ❌ BLOCKED: {unsafe_count} Virtual Server(s) in unsafe state. Certificate dereferencing could impact services.")
-                print(f"    💡 Only Virtual Servers that are disabled AND in offline/down state are safe for certificate changes.")
-                return False
-            else:
-                print(f"    ✅ All Virtual Servers are in safe state (disabled and offline/down) - safe to proceed")
-                return True
-                
-        except Exception as e:
-            print(f"    ⚠️  Warning: Could not check Virtual Server status: {e}")
-            print(f"    ⚠️  Proceeding with caution - recommend manual verification")
-            return True  # Default to allowing operation with warning
-    
-    def _find_virtual_servers_using_ssl_profile(self, profile_name: str, profile_type: str, partition: str) -> List[Tuple[str, str]]:
-        """
-        Find Virtual Servers that use a specific SSL profile
-        
-        Args:
-            profile_name: Name of the SSL profile
-            profile_type: Type of SSL profile (Client-SSL or Server-SSL)
-            partition: Partition of the profile
-            
-        Returns:
-            List of tuples (vs_name, vs_partition) for Virtual Servers using this profile
-        """
-        virtual_servers = []
-        
-        try:
-            # Get all Virtual Servers in all partitions
-            all_partitions = self.discover_partitions()
-            
-            for vs_partition in all_partitions:
-                response = self._make_request('GET', f'/mgmt/tm/ltm/virtual?$filter=partition eq {vs_partition}')
-                
-                for vs in response.json().get('items', []):
-                    vs_name = vs.get('name')
-                    profiles = vs.get('profiles', {})
-                    
-                    # Check if this Virtual Server uses our SSL profile
-                    profile_full_path = f"/{partition}/{profile_name}"
-                    profile_simple_name = profile_name
-                    
-                    for profile_path, profile_config in profiles.items():
-                        # Check both full path and simple name matches
-                        if (profile_path == profile_full_path or 
-                            profile_path.endswith(f"/{profile_name}") or
-                            profile_path == profile_simple_name):
-                            
-                            # Verify it's the correct type of SSL profile
-                            context = profile_config.get('context', '')
-                            if ((profile_type == 'Client-SSL Profile' and context == 'clientside') or
-                                (profile_type == 'Server-SSL Profile' and context == 'serverside')):
-                                virtual_servers.append((vs_name, vs_partition))
-                                break
-                                
-        except Exception as e:
-            print(f"      ⚠️  Warning: Error finding Virtual Servers using SSL profile: {e}")
-        
-        return virtual_servers
-    
-    def _get_virtual_server_status(self, vs_name: str, vs_partition: str) -> Dict[str, bool]:
-        """
-        Get the status of a Virtual Server
-        
-        Args:
-            vs_name: Virtual Server name
-            vs_partition: Virtual Server partition
-            
-        Returns:
-            Dictionary with 'enabled' and 'available' status
-        """
-        try:
-            # Get Virtual Server configuration
-            vs_path = f"~{vs_partition}~{vs_name}".replace('/', '~')
-            response = self._make_request('GET', f'/mgmt/tm/ltm/virtual/{vs_path}')
-            vs_config = response.json()
-            
-            # Check if enabled
-            enabled = vs_config.get('enabled', True)  # Default to True if not specified
-            disabled = vs_config.get('disabled', False)
-            is_enabled = enabled and not disabled
-            
-            # Get Virtual Server stats to check availability
-            try:
-                stats_response = self._make_request('GET', f'/mgmt/tm/ltm/virtual/{vs_path}/stats')
-                stats = stats_response.json()
-                
-                # Parse availability from stats
-                entries = stats.get('entries', {})
-                availability_state = 'unknown'
-                
-                for entry_key, entry_data in entries.items():
-                    nested_stats = entry_data.get('nestedStats', {}).get('entries', {})
-                    if 'status.availabilityState' in nested_stats:
-                        availability_state = nested_stats['status.availabilityState']['description']
-                        break
-                
-                # ENHANCED: Only consider 'offline' or 'down' states as safe for deletion
-                # 'unknown' and 'available' states are considered unsafe for certificate deletion
-                safe_states = ['offline', 'down', 'disabled']
-                is_available = availability_state.lower() not in safe_states
-                
-                # Log the actual availability state for debugging
-                print(f"        🔍 Virtual Server {vs_name} availability state: {availability_state}")
-                
-            except Exception:
-                # If stats are not available, assume available (unsafe) if enabled
-                is_available = is_enabled
-                print(f"        ⚠️  Could not get stats for Virtual Server {vs_name}, assuming available if enabled")
-            
-            return {
-                'enabled': is_enabled,
-                'available': is_available
-            }
-            
-        except Exception as e:
-            print(f"        ⚠️  Warning: Could not get status for Virtual Server {vs_name}: {e}")
-            return {'enabled': True, 'available': True}  # Conservative assumption
-    
-    def check_gtm_object_status(self, usage: CertificateUsage) -> bool:
-        """
-        Check if GTM objects using this monitor are active
-        
-        Args:
-            usage: CertificateUsage object for GTM monitor
-            
-        Returns:
-            True if safe to proceed, False if blocked
-        """
-        if usage.object_type != 'GTM HTTPS Monitor':
-            return True  # Not a GTM monitor, no GTM check needed
-        
-        if not self.is_gtm_available():
-            return True  # GTM not available, skip check
-        
-        try:
-            print(f"    🔍 Checking GTM objects using monitor: {usage.object_name}")
-            
-            # Find GTM pools and Wide IPs using this monitor
-            gtm_objects = self._find_gtm_objects_using_monitor(usage.object_name, usage.partition)
-            
-            if not gtm_objects['pools'] and not gtm_objects['wideips']:
-                print(f"    ✅ No GTM objects found using this monitor")
-                return True
-            
-            print(f"    📊 Found {len(gtm_objects['pools'])} GTM pool(s) and {len(gtm_objects['wideips'])} Wide IP(s) using this monitor")
-            
-            # Check status of GTM pools
-            active_pools = 0
-            for pool_name, pool_partition in gtm_objects['pools']:
-                pool_status = self._get_gtm_pool_status(pool_name, pool_partition)
-                if pool_status['enabled'] and pool_status['available']:
-                    active_pools += 1
-                    print(f"      ⚠️  GTM Pool {pool_name} is ACTIVE")
-                else:
-                    print(f"      ✅ GTM Pool {pool_name} is inactive")
-            
-            # Check status of Wide IPs
-            active_wideips = 0
-            for wideip_name, wideip_partition in gtm_objects['wideips']:
-                wideip_status = self._get_gtm_wideip_status(wideip_name, wideip_partition)
-                if wideip_status['enabled'] and wideip_status['available']:
-                    active_wideips += 1
-                    print(f"      ⚠️  GTM Wide IP {wideip_name} is ACTIVE")
-                else:
-                    print(f"      ✅ GTM Wide IP {wideip_name} is inactive")
-            
-            total_active = active_pools + active_wideips
-            if total_active > 0:
-                print(f"    ❌ BLOCKED: {total_active} active GTM object(s) found. Monitor dereferencing could impact global traffic management.")
-                return False
-            else:
-                print(f"    ✅ All GTM objects are inactive - safe to proceed")
-                return True
-                
-        except Exception as e:
-            print(f"    ⚠️  Warning: Could not check GTM object status: {e}")
-            print(f"    ⚠️  Proceeding with caution - recommend manual verification")
-            return True  # Default to allowing operation with warning
-    
-    def _find_gtm_objects_using_monitor(self, monitor_name: str, partition: str) -> Dict[str, List[Tuple[str, str]]]:
-        """
-        Find GTM pools and Wide IPs using a specific monitor
-        
-        Args:
-            monitor_name: Name of the monitor
-            partition: Partition of the monitor
-            
-        Returns:
-            Dictionary with 'pools' and 'wideips' lists
-        """
-        gtm_objects = {'pools': [], 'wideips': []}
-        
-        if not self.is_gtm_available():
-            return gtm_objects
-        
-        monitor_full_path = f"/{partition}/{monitor_name}"
-        
-        try:
-            # Check GTM pools
-            all_partitions = self.discover_partitions()
-            
-            for pool_partition in all_partitions:
-                # Check different pool types (A, AAAA, CNAME, etc.)
-                pool_types = ['a', 'aaaa', 'cname', 'mx', 'naptr', 'srv']
-                
-                for pool_type in pool_types:
-                    try:
-                        response = self._make_request('GET', f'/mgmt/tm/gtm/pool/{pool_type}?$filter=partition eq {pool_partition}')
-                        
-                        for pool in response.json().get('items', []):
-                            pool_name = pool.get('name')
-                            monitor_config = pool.get('monitor', '')
-                            
-                            # Check if this pool uses our monitor
-                            if (monitor_full_path in monitor_config or 
-                                monitor_name in monitor_config):
-                                gtm_objects['pools'].append((pool_name, pool_partition))
-                                
-                    except Exception:
-                        continue  # Skip pool types that don't exist
-            
-            # Check GTM Wide IPs
-            for wideip_partition in all_partitions:
-                wideip_types = ['a', 'aaaa', 'cname', 'mx', 'naptr', 'srv']
-                
-                for wideip_type in wideip_types:
-                    try:
-                        response = self._make_request('GET', f'/mgmt/tm/gtm/wideip/{wideip_type}?$filter=partition eq {wideip_partition}')
-                        
-                        for wideip in response.json().get('items', []):
-                            wideip_name = wideip.get('name')
-                            
-                            # Check pools referenced by this Wide IP
-                            pools = wideip.get('pools', [])
-                            for pool_ref in pools:
-                                # If any referenced pool uses our monitor, the Wide IP is affected
-                                if pool_ref.get('name') in [p[0] for p in gtm_objects['pools']]:
-                                    gtm_objects['wideips'].append((wideip_name, wideip_partition))
-                                    break
-                                    
-                    except Exception:
-                        continue  # Skip Wide IP types that don't exist
-                        
-        except Exception as e:
-            print(f"      ⚠️  Warning: Error finding GTM objects using monitor: {e}")
-        
-        return gtm_objects
-    
-    def _get_gtm_pool_status(self, pool_name: str, pool_partition: str) -> Dict[str, bool]:
-        """
-        Get the status of a GTM pool
-        
-        Args:
-            pool_name: GTM pool name
-            pool_partition: GTM pool partition
-            
-        Returns:
-            Dictionary with 'enabled' and 'available' status
-        """
-        try:
-            # Try different pool types to find the pool
-            pool_types = ['a', 'aaaa', 'cname', 'mx', 'naptr', 'srv']
-            
-            for pool_type in pool_types:
-                try:
-                    pool_path = f"~{pool_partition}~{pool_name}".replace('/', '~')
-                    response = self._make_request('GET', f'/mgmt/tm/gtm/pool/{pool_type}/{pool_path}')
-                    pool_config = response.json()
-                    
-                    # Check if enabled
-                    enabled = pool_config.get('enabled', True)
-                    disabled = pool_config.get('disabled', False)
-                    is_enabled = enabled and not disabled
-                    
-                    # For GTM pools, if enabled assume available (stats are complex)
-                    return {'enabled': is_enabled, 'available': is_enabled}
-                    
-                except Exception:
-                    continue  # Try next pool type
-            
-            # If not found in any pool type, assume inactive
-            return {'enabled': False, 'available': False}
-            
-        except Exception as e:
-            print(f"        ⚠️  Warning: Could not get status for GTM pool {pool_name}: {e}")
-            return {'enabled': True, 'available': True}  # Conservative assumption
-    
-    def _get_gtm_wideip_status(self, wideip_name: str, wideip_partition: str) -> Dict[str, bool]:
-        """
-        Get the status of a GTM Wide IP
-        
-        Args:
-            wideip_name: GTM Wide IP name
-            wideip_partition: GTM Wide IP partition
-            
-        Returns:
-            Dictionary with 'enabled' and 'available' status
-        """
-        try:
-            # Try different Wide IP types to find the Wide IP
-            wideip_types = ['a', 'aaaa', 'cname', 'mx', 'naptr', 'srv']
-            
-            for wideip_type in wideip_types:
-                try:
-                    wideip_path = f"~{wideip_partition}~{wideip_name}".replace('/', '~')
-                    response = self._make_request('GET', f'/mgmt/tm/gtm/wideip/{wideip_type}/{wideip_path}')
-                    wideip_config = response.json()
-                    
-                    # Check if enabled
-                    enabled = wideip_config.get('enabled', True)
-                    disabled = wideip_config.get('disabled', False)
-                    is_enabled = enabled and not disabled
-                    
-                    # For GTM Wide IPs, if enabled assume available
-                    return {'enabled': is_enabled, 'available': is_enabled}
-                    
-                except Exception:
-                    continue  # Try next Wide IP type
-            
-            # If not found in any Wide IP type, assume inactive
-            return {'enabled': False, 'available': False}
-            
-        except Exception as e:
-            print(f"        ⚠️  Warning: Could not get status for GTM Wide IP {wideip_name}: {e}")
-            return {'enabled': True, 'available': True}  # Conservative assumption
-    
+
     def dereference_certificate(self, cert_path: str, usage: CertificateUsage) -> bool:
         """
         Dereference a certificate from an F5 object and replace with appropriate default for the partition
+        
+        NOTE: Service impact checking is now done upfront in analyze_service_impact() method.
+        This method only performs the actual dereferencing operation.
         
         Args:
             cert_path: Full path of certificate to dereference
@@ -1645,18 +1653,6 @@ class F5CertificateCleanup:
         """
         try:
             print(f"  🔄 Dereferencing from {usage.object_type}: {usage.object_name} (partition: {usage.partition})")
-            
-            # 🚨 SAFETY CHECK: Check Virtual Server status for SSL profiles
-            if not self.check_virtual_server_status(usage):
-                print(f"    🛑 ABORTED: Active Virtual Server(s) detected. Dereferencing blocked to prevent service impact.")
-                print(f"    💡 Recommendation: Disable affected Virtual Servers during maintenance window before retrying.")
-                return False
-            
-            # 🚨 SAFETY CHECK: Check GTM object status for GTM monitors  
-            if not self.check_gtm_object_status(usage):
-                print(f"    🛑 ABORTED: Active GTM object(s) detected. Dereferencing blocked to prevent traffic management impact.")
-                print(f"    💡 Recommendation: Disable affected GTM pools/Wide IPs during maintenance window before retrying.")
-                return False
             
             # Get appropriate default certificate for this partition
             default_cert, default_key = self.get_default_certificate_for_partition(usage.partition)
@@ -2112,13 +2108,14 @@ class F5CertificateCleanup:
             self._apm_available = False
             return False
     
-    def is_default_certificate(self, cert_name: str, cert_path: str) -> bool:
+    def is_default_certificate(self, cert_name: str, cert_path: str, cert_type: str = "") -> bool:
         """
         Check if a certificate is a default certificate that should never be deleted
         
         Args:
             cert_name: Certificate name
             cert_path: Certificate full path
+            cert_type: Certificate type from F5 API (e.g., "Certificate Bundle")
             
         Returns:
             True if this is a default certificate, False otherwise
@@ -2126,13 +2123,19 @@ class F5CertificateCleanup:
         # Convert to lowercase for case-insensitive checking
         cert_name_lower = cert_name.lower()
         cert_path_lower = cert_path.lower()
+        cert_type_lower = cert_type.lower()
         
-        # SIMPLE RULE: Protect ANY certificate with "default" or "bundle" as substring
-        protected_substrings = ['default', 'bundle']
+        # PRIMARY RULE: Check certificate type first (most reliable)
+        if 'bundle' in cert_type_lower:
+            return True
         
-        for substring in protected_substrings:
-            if substring in cert_name_lower or substring in cert_path_lower:
-                return True
+        # SECONDARY RULE: Protect certificates with "default" in name/path
+        if 'default' in cert_name_lower or 'default' in cert_path_lower:
+            return True
+        
+        # FALLBACK RULE: Check for bundle in name/path (for older F5 versions or API limitations)
+        if 'bundle' in cert_name_lower or 'bundle' in cert_path_lower:
+            return True
         
         # Additional protection for common system certificate patterns
         system_patterns = [
@@ -3423,7 +3426,6 @@ class F5CertificateCleanup:
 
 def process_multiple_devices(devices: List[DeviceInfo], username: str = "", password: str = "", 
                            expiry_days: int = 30, report_only: bool = False, 
-                           tls_version: str = 'auto', ciphers: str = None,
                            use_bulk_optimization: bool = True) -> BatchCleanupReport:
     """
     Process certificate cleanup for multiple F5 devices
@@ -3434,8 +3436,6 @@ def process_multiple_devices(devices: List[DeviceInfo], username: str = "", pass
         password: Default password if not specified in CSV  
         expiry_days: Days ahead to consider certificates as expiring
         report_only: Whether to only generate reports without cleanup
-        tls_version: TLS version strategy for all devices
-        ciphers: Custom cipher suite for all devices
         use_bulk_optimization: Whether to use bulk optimization for certificate checking
         
     Returns:
@@ -3482,8 +3482,6 @@ def process_multiple_devices(devices: List[DeviceInfo], username: str = "", pass
                 device_password, 
                 expiry_days,
                 test_connection=False,
-                tls_version=tls_version,
-                ciphers=ciphers,
                 use_bulk_optimization=use_bulk_optimization
             )
             
@@ -3797,12 +3795,7 @@ Examples:
     parser.add_argument('--batch-report-file', default='f5_batch_cert_cleanup_report.html',
                        help='Batch HTML report filename for CSV mode (default: auto-generated with timestamp)')
     
-    # TLS Configuration
-    parser.add_argument('--tls-version', default='auto',
-                       choices=['auto', 'legacy', 'tlsv1', 'tlsv1_1', 'tlsv1_2', 'tlsv1_3'],
-                       help='TLS version strategy (default: auto)')
-    parser.add_argument('--ciphers',
-                       help='Custom cipher suite string for TLS connections')
+
     
     # Performance Configuration
     parser.add_argument('--disable-bulk-optimization', action='store_true',
@@ -3845,8 +3838,6 @@ Examples:
                 default_password, 
                 args.expiry_days, 
                 args.report_only,
-                args.tls_version,
-                args.ciphers,
                 use_bulk_optimization
             )
             
@@ -3883,8 +3874,6 @@ Examples:
                 args.username, 
                 args.password, 
                 args.expiry_days,
-                tls_version=args.tls_version,
-                ciphers=args.ciphers,
                 use_bulk_optimization=use_bulk_optimization
             )
             
