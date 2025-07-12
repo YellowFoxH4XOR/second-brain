@@ -1,0 +1,1914 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>AWS SAA-C03 Zero-Budget Study Plan | Text-Based Learning Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'serif': ['Crimson Text', 'serif'],
+                        'sans': ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': '#1e293b',
+                        'secondary': '#64748b',
+                        'accent': '#f59e0b',
+                        'muted': '#f1f5f9',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .toc-fixed {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-right: 1px solid #e2e8f0;
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 2rem 1.5rem;
+        }
+        
+        .main-content {
+            margin-left: 280px;
+            min-height: 100vh;
+        }
+        
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: center;
+        }
+        
+        .bento-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .citation {
+            display: inline-block;
+            background: #f59e0b;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-decoration: none;
+            margin-left: 2px;
+            transition: all 0.2s;
+        }
+        
+        .citation:hover {
+            background: #d97706;
+            transform: translateY(-1px);
+        }
+        
+        .domain-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin: 0.25rem;
+        }
+        
+        .domain-1 { background: #fef3c7; color: #92400e; }
+        .domain-2 { background: #dbeafe; color: #1e40af; }
+        .domain-3 { background: #dcfce7; color: #166534; }
+        .domain-4 { background: #fce7f3; color: #be185d; }
+        
+        .mermaid-container {
+            display: flex;
+            justify-content: center;
+            min-height: 300px;
+            max-height: 800px;
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mermaid-container .mermaid {
+            width: 100%;
+            max-width: 100%;
+            height: 100%;
+            cursor: grab;
+            transition: transform 0.3s ease;
+            transform-origin: center center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .mermaid-container .mermaid svg {
+            max-width: 100%;
+            height: 100%;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .mermaid-container .mermaid:active {
+            cursor: grabbing;
+        }
+
+        .mermaid-container.zoomed .mermaid {
+            height: 100%;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .mermaid-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .mermaid-control-btn {
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #374151;
+            font-size: 14px;
+            min-width: 36px;
+            height: 36px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mermaid-control-btn:hover {
+            background: #f8fafc;
+            border-color: #3b82f6;
+            color: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .mermaid-control-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+            font-family: 'Inter', sans-serif !important;
+        }
+        
+        /* Enhanced node styling with better contrast */
+        .mermaid .node rect,
+        .mermaid .node circle,
+        .mermaid .node ellipse,
+        .mermaid .node polygon {
+            stroke-width: 2px !important;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        }
+        
+        /* Specific styling for different node types with high contrast */
+        .mermaid .node[style*="fill:#f59e0b"] .label,
+        .mermaid .node[style*="fill:#ef4444"] .label,
+        .mermaid .node[style*="fill:#10b981"] .label,
+        .mermaid .node[style*="fill:#3b82f6"] .label,
+        .mermaid .node[style*="fill:#8b5cf6"] .label,
+        .mermaid .node[style*="fill:#f97316"] .label,
+        .mermaid .node[style*="fill:#ec4899"] .label {
+            font-weight: 600 !important;
+            font-size: 14px !important;
+        }
+        
+        /* Ensure text is readable on all backgrounds */
+        .mermaid .node[style*="fill:#f59e0b"] .label { color: #1f2937 !important; }
+        .mermaid .node[style*="fill:#ef4444"] .label { color: #ffffff !important; }
+        .mermaid .node[style*="fill:#10b981"] .label { color: #ffffff !important; }
+        .mermaid .node[style*="fill:#3b82f6"] .label { color: #ffffff !important; }
+        .mermaid .node[style*="fill:#8b5cf6"] .label { color: #ffffff !important; }
+        .mermaid .node[style*="fill:#f97316"] .label { color: #ffffff !important; }
+        .mermaid .node[style*="fill:#ec4899"] .label { color: #ffffff !important; }
+        
+        .mermaid .edgePath .path {
+            stroke: #64748b !important;
+            stroke-width: 2px !important;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+        }
+        
+        .mermaid .edgeLabel {
+            background-color: #ffffff !important;
+            color: #374151 !important;
+            font-weight: 500 !important;
+            font-size: 12px !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        @media (max-width: 1024px) {
+            .toc-fixed {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .toc-fixed.open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .hero-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .mermaid-control-btn:not(.reset-zoom) {
+                display: none;
+            }
+            .mermaid-controls {
+                top: auto;
+                bottom: 15px;
+                right: 15px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+            }
+            .hero-grid .grid-cols-2 {
+                grid-template-columns: 1fr;
+            }
+            .px-8 {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .hero-grid h1 {
+                font-size: 2.5rem;
+                line-height: 1.2;
+                word-break: break-word;
+            }
+            .hero-grid p {
+                font-size: 1rem;
+            }
+            .hero-grid .bento-card {
+                padding: 1rem;
+            }
+            .section-padding {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+        }
+    </style>
+  </head>
+
+  <body class="bg-gradient-to-br from-slate-50 to-blue-50 font-sans text-slate-800">
+
+    <!-- Table of Contents -->
+    <nav class="toc-fixed" id="toc">
+      <div class="mb-8">
+        <h3 class="font-serif text-lg font-semibold text-slate-800 mb-4">Navigation</h3>
+        <ul class="space-y-2 text-sm">
+          <li>
+            <a class="block py-1 px-2 rounded hover:bg-white/60 transition-colors" href="#hero">Overview</a>
+          </li>
+          <li>
+            <a class="block py-1 px-2 rounded hover:bg-white/60 transition-colors" href="#exam-structure">Exam Structure</a>
+          </li>
+          <li>
+            <a class="block py-1 px-2 rounded hover:bg-white/60 transition-colors" href="#domains">Exam Domains</a>
+          </li>
+          <li>
+            <a class="block py-1 px-2 rounded hover:bg-white/60 transition-colors" href="#resources">Free Resources</a>
+          </li>
+          <li>
+            <a class="block py-1 px-2 rounded hover:bg-white/60 transition-colors" href="#study-plan">Study Plan</a>
+          </li>
+          <li>
+            <a class="block py-1 px-2 rounded hover:bg-white/60 transition-colors" href="#hands-on">Hands-On Practice</a>
+          </li>
+          <li>
+            <a class="block py-1 px-2 rounded hover:bg-white/60 transition-colors" href="#practice-exams">Practice Exams</a>
+          </li>
+          <li>
+            <a class="block py-1 px-2 rounded hover:bg-white/60 transition-colors" href="#strategies">Test-Taking Strategies</a>
+          </li>
+          <li>
+            <a class="block py-1 px-2 rounded hover:bg-white/60 transition-colors" href="#communities">Community Resources</a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="border-t pt-4">
+        <div class="text-xs text-slate-600 space-y-1">
+          <div class="font-medium mb-2">Exam Details:</div>
+          <div>• 65 questions</div>
+          <div>• 130 minutes</div>
+          <div>• $150 USD</div>
+          <div>• Passing score: ~720/1000</div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Mobile TOC Toggle -->
+    <button class="lg:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-lg shadow-lg" onclick="toggleTOC()">
+      <i class="fas fa-bars text-slate-700"></i>
+    </button>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Hero Section -->
+      <section class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 text-white relative overflow-hidden" id="hero">
+        <div class="absolute inset-0 bg-black/20"></div>
+        <div class="relative z-10 container mx-auto px-8 py-16">
+          <div class="hero-grid max-w-7xl">
+            <!-- Left Column: Title and Overview -->
+            <div class="space-y-8">
+              <div class="space-y-4">
+                <h1 class="font-serif text-5xl lg:text-6xl font-semibold leading-tight">
+                  <em class="text-amber-400">AWS SAA-C03</em>
+                  <br />
+                  Zero-Budget
+                  <br />
+                  Study Plan
+                </h1>
+                <p class="text-xl text-blue-100 max-w-lg leading-relaxed">
+                  A comprehensive guide for text-based learners with 20 hours per week commitment over 5 weeks
+                </p>
+              </div>
+
+              <div class="bento-card">
+                <h3 class="font-semibold text-slate-800 mb-3">Key Highlights</h3>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                  <div class="flex items-center space-x-2">
+                    <i class="fas fa-dollar-sign text-green-500"></i>
+                    <span class="text-slate-600">Zero Budget Required</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <i class="fas fa-book text-blue-500"></i>
+                    <span class="text-slate-600">Text-Based Learning</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <i class="fas fa-clock text-purple-500"></i>
+                    <span class="text-slate-600">20 hrs/week</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <i class="fas fa-calendar text-orange-500"></i>
+                    <span class="text-slate-600">5 Weeks Timeline</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column: Key Metrics -->
+            <div class="grid grid-cols-2 gap-4">
+              <div class="bento-card text-center">
+                <div class="text-3xl font-bold text-blue-600 mb-2">65</div>
+                <div class="text-sm text-slate-600">Exam Questions</div>
+              </div>
+              <div class="bento-card text-center">
+                <div class="text-3xl font-bold text-purple-600 mb-2">130</div>
+                <div class="text-sm text-slate-600">Minutes Duration</div>
+              </div>
+              <div class="bento-card text-center">
+                <div class="text-3xl font-bold text-green-600 mb-2">720</div>
+                <div class="text-sm text-slate-600">Passing Score</div>
+              </div>
+              <div class="bento-card text-center">
+                <div class="text-3xl font-bold text-orange-600 mb-2">$150</div>
+                <div class="text-sm text-slate-600">Exam Cost (USD)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Exam Structure Section -->
+      <section class="py-16 px-8 bg-white" id="exam-structure">
+        <div class="container mx-auto max-w-6xl">
+          <div class="text-center mb-12">
+            <h2 class="font-serif text-4xl font-semibold text-slate-800 mb-4">Understanding the AWS SAA-C03 Exam</h2>
+            <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+              The AWS Certified Solutions Architect - Associate exam validates your ability to design secure, resilient, high-performing, and cost-optimized solutions on AWS.
+            </p>
+          </div>
+
+          <div class="grid lg:grid-cols-2 gap-8 mb-12">
+            <div class="bg-slate-50 rounded-xl p-8">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800">Exam Overview</h3>
+              <div class="space-y-4">
+                <div class="flex justify-between items-center py-2 border-b border-slate-200">
+                  <span class="font-medium">Exam Length</span>
+                  <span class="text-slate-600">130 minutes</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-slate-200">
+                  <span class="font-medium">Total Questions</span>
+                  <span class="text-slate-600">65 questions</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-slate-200">
+                  <span class="font-medium">Scored Questions</span>
+                  <span class="text-slate-600">50 (15 are unscored)</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-slate-200">
+                  <span class="font-medium">Passing Score</span>
+                  <span class="text-slate-600">~720/1000</span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                  <span class="font-medium">Question Format</span>
+                  <span class="text-slate-600">Multiple choice &amp; multiple response</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-blue-50 rounded-xl p-8">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800">Target Candidate Profile</h3>
+              <div class="space-y-4">
+                <div class="flex items-start space-x-3">
+                  <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                  <div>
+                    <div class="font-medium">Experience Level</div>
+                    <div class="text-slate-600">At least 1 year of hands-on experience designing cloud solutions using AWS services <a class="citation" href="https://awsfirstcloudjourney.github.io/">[67]</a>
+                      <a class="citation" href="https://d1.awsstatic.com/training-and-certification/docs-sa-assoc/AWS-Certified-Solutions-Architect-Associate_Exam-Guide.pdf">[141]</a>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                  <div>
+                    <div class="font-medium">Primary Focus</div>
+                    <div class="text-slate-600">Designing solutions based on the AWS Well-Architected Framework <a class="citation" href="https://tutorialsdojo.com/aws-certified-solutions-architect-associate-saa-c03/">[110]</a>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                  <div>
+                    <div class="font-medium">Key Skills</div>
+                    <div class="text-slate-600">Creating secure, scalable, resilient, and cost-optimized solutions</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mermaid Diagram: Exam Structure -->
+          <div class="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-8 mb-8">
+            <h3 class="font-serif text-2xl font-semibold mb-6 text-center text-slate-800">Exam Structure Overview</h3>
+            <div class="mermaid-container">
+              <div class="mermaid-controls">
+                <button class="mermaid-control-btn zoom-in" title="放大">
+                  <i class="fas fa-search-plus"></i>
+                </button>
+                <button class="mermaid-control-btn zoom-out" title="缩小">
+                  <i class="fas fa-search-minus"></i>
+                </button>
+                <button class="mermaid-control-btn reset-zoom" title="重置">
+                  <i class="fas fa-expand-arrows-alt"></i>
+                </button>
+                <button class="mermaid-control-btn fullscreen" title="全屏查看">
+                  <i class="fas fa-expand"></i>
+                </button>
+              </div>
+              <div class="mermaid">
+                graph TD
+                A["SAA-C03 Exam
+                <br />65 Questions
+                <br />130 Minutes"] --&gt; B["Scored Questions
+                <br />50 Questions
+                <br />Affects Final Score"]
+                A --&gt; C["Unscored Questions
+                <br />15 Questions
+                <br />Used for Research"]
+
+                B --&gt; D["Multiple Choice
+                <br />Single Correct Answer"]
+                B --&gt; E["Multiple Response
+                <br />2+ Correct Answers"]
+
+                D --&gt; F["Passing Score
+                <br />~720/1000 Points"]
+                E --&gt; F
+
+                style A fill:#f59e0b,color:#1f2937,stroke:#d97706,stroke-width:3px
+                style B fill:#3b82f6,color:#ffffff,stroke:#1e40af,stroke-width:2px
+                style C fill:#64748b,color:#ffffff,stroke:#475569,stroke-width:2px
+                style D fill:#10b981,color:#ffffff,stroke:#059669,stroke-width:2px
+                style E fill:#8b5cf6,color:#ffffff,stroke:#7c3aed,stroke-width:2px
+                style F fill:#ef4444,color:#ffffff,stroke:#dc2626,stroke-width:3px
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Exam Domains Section -->
+      <section class="py-16 px-8 bg-gradient-to-br from-slate-50 to-blue-50" id="domains">
+        <div class="container mx-auto max-w-6xl">
+          <div class="text-center mb-12">
+            <h2 class="font-serif text-4xl font-semibold text-slate-800 mb-4">Key Exam Domains and Weightings</h2>
+            <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+              The exam is divided into four primary domains, each carrying a specific weighting that reflects its importance in the role of a solutions architect.
+            </p>
+          </div>
+
+          <!-- Domains Table -->
+          <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-12">
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead class="bg-slate-800 text-white">
+                  <tr>
+                    <th class="px-6 py-4 text-left font-medium">Domain</th>
+                    <th class="px-6 py-4 text-center font-medium">Weighting</th>
+                    <th class="px-6 py-4 text-left font-medium">Key Focus Areas</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                  <tr class="hover:bg-amber-50 transition-colors">
+                    <td class="px-6 py-4">
+                      <div class="domain-badge domain-1">
+                        <i class="fas fa-shield-alt mr-2"></i>
+                        Design Secure Architectures
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                      <span class="text-2xl font-bold text-amber-600">30%</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-600">
+                      IAM, VPC security, encryption, key management, security services integration <a class="citation" href="https://dokumen.pub/aws-certified-solutions-architect-associate-exam-guide-exam-saa-c01-2nbsped-9781260470185-1260470180.html">[136]</a>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-blue-50 transition-colors">
+                    <td class="px-6 py-4">
+                      <div class="domain-badge domain-2">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        Design Resilient Architectures
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                      <span class="text-2xl font-bold text-blue-600">26%</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-600">
+                      Multi-tier architectures, high availability, fault tolerance, SQS, SNS, Route 53 <a class="citation" href="https://d1.awsstatic.com/training-and-certification/docs-sa-assoc/AWS-Certified-Solutions-Architect-Associate_Exam-Guide.pdf">[232]</a>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-green-50 transition-colors">
+                    <td class="px-6 py-4">
+                      <div class="domain-badge domain-3">
+                        <i class="fas fa-tachometer-alt mr-2"></i>
+                        Design High-Performing Architectures
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                      <span class="text-2xl font-bold text-green-600">24%</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-600">
+                      Auto Scaling, Lambda, CloudFront, ElastiCache, DynamoDB, high-performance storage <a class="citation" href="https://github.com/keenanromain/AWS-SAA-C02-Study-Guide">[12]</a>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-pink-50 transition-colors">
+                    <td class="px-6 py-4">
+                      <div class="domain-badge domain-4">
+                        <i class="fas fa-dollar-sign mr-2"></i>
+                        Design Cost-Optimized Architectures
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                      <span class="text-2xl font-bold text-pink-600">20%</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-600">
+                      Cost-effective storage, compute optimization, pricing models, cost management tools <a class="citation" href="https://www.iprep.online/courses/free-aws-certified-solutions-architect-associate-exam-prep/">[49]</a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Study Time Allocation Visualization -->
+          <div class="bg-white rounded-xl p-8 shadow-lg">
+            <h3 class="font-serif text-2xl font-semibold mb-6 text-center text-slate-800">Recommended Study Time Allocation</h3>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div class="text-center">
+                <div class="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+                  <span class="text-white text-xl font-bold">30%</span>
+                </div>
+                <h4 class="font-semibold text-slate-800 mb-2">Secure Architectures</h4>
+                <p class="text-sm text-slate-600">Week 1-2 focus</p>
+              </div>
+              <div class="text-center">
+                <div class="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                  <span class="text-white text-xl font-bold">26%</span>
+                </div>
+                <h4 class="font-semibold text-slate-800 mb-2">Resilient Architectures</h4>
+                <p class="text-sm text-slate-600">Week 2-3 focus</p>
+              </div>
+              <div class="text-center">
+                <div class="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+                  <span class="text-white text-xl font-bold">24%</span>
+                </div>
+                <h4 class="font-semibold text-slate-800 mb-2">High Performance</h4>
+                <p class="text-sm text-slate-600">Week 3-4 focus</p>
+              </div>
+              <div class="text-center">
+                <div class="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-pink-400 to-pink-600 flex items-center justify-center">
+                  <span class="text-white text-xl font-bold">20%</span>
+                </div>
+                <h4 class="font-semibold text-slate-800 mb-2">Cost Optimization</h4>
+                <p class="text-sm text-slate-600">Week 4-5 focus</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Free Resources Section -->
+      <section class="py-16 px-8 bg-white" id="resources">
+        <div class="container mx-auto max-w-6xl">
+          <div class="text-center mb-12">
+            <h2 class="font-serif text-4xl font-semibold text-slate-800 mb-4">Core Study Resources (Free and Text-Based)</h2>
+            <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+              Leverage these carefully curated free resources to build your AWS Solutions Architect knowledge without spending a dime.
+            </p>
+          </div>
+
+          <div class="grid lg:grid-cols-2 gap-8 mb-12">
+            <!-- Official AWS Resources -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+                <i class="fas fa-building mr-3 text-blue-600"></i>
+                Official AWS Documentation
+              </h3>
+              <div class="space-y-4">
+                <div class="bg-white rounded-lg p-4 border-l-4 border-blue-500">
+                  <h4 class="font-semibold text-slate-800 mb-2">AWS SAA-C03 Exam Guide</h4>
+                  <p class="text-sm text-slate-600 mb-2">Primary reference for exam content, domains, and question formats <a class="citation" href="https://tutorialsdojo.com/aws-certified-solutions-architect-associate-saa-c03/">[2]</a>
+                  </p>
+                  <a class="text-blue-600 text-sm hover:underline" href="#">Download Exam Guide</a>
+                </div>
+                <div class="bg-white rounded-lg p-4 border-l-4 border-blue-500">
+                  <h4 class="font-semibold text-slate-800 mb-2">AWS Well-Architected Framework</h4>
+                  <p class="text-sm text-slate-600 mb-2">Foundation for architectural questions covering all six pillars <a class="citation" href="https://d0.awsstatic.com/whitepapers/architecture/AWS_Well-Architected_Framework.pdf">[7]</a>
+                  </p>
+                  <a class="text-blue-600 text-sm hover:underline" href="#">Read Whitepaper</a>
+                </div>
+                <div class="bg-white rounded-lg p-4 border-l-4 border-blue-500">
+                  <h4 class="font-semibold text-slate-800 mb-2">Service FAQs</h4>
+                  <p class="text-sm text-slate-600 mb-2">Detailed information on limits, features, and best practices for core services <a class="citation" href="https://github.com/keenanromain/AWS-SAA-C02-Study-Guide">[12]</a>
+                  </p>
+                  <a class="text-blue-600 text-sm hover:underline" href="#">Browse FAQs</a>
+                </div>
+                <div class="bg-white rounded-lg p-4 border-l-4 border-blue-500">
+                  <h4 class="font-semibold text-slate-800 mb-2">Sample Questions</h4>
+                  <p class="text-sm text-slate-600 mb-2">Official practice questions to understand question format and difficulty <a class="citation" href="https://tutorialsdojo.com/top-5-free-aws-review-materials/">[47]</a>
+                  </p>
+                  <a class="text-blue-600 text-sm hover:underline" href="#">Try Sample Questions</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Community Resources -->
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-8">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+                <i class="fas fa-users mr-3 text-green-600"></i>
+                Community Resources
+              </h3>
+              <div class="space-y-4">
+                <div class="bg-white rounded-lg p-4 border-l-4 border-green-500">
+                  <h4 class="font-semibold text-slate-800 mb-2">GitHub Study Guides</h4>
+                  <p class="text-sm text-slate-600 mb-2">Structured notes and study guides from successful candidates <a class="citation" href="https://github.com/keenanromain/AWS-SAA-C02-Study-Guide">[212]</a>
+                  </p>
+                  <a class="text-green-600 text-sm hover:underline" href="#">Explore Repositories</a>
+                </div>
+                <div class="bg-white rounded-lg p-4 border-l-4 border-green-500">
+                  <h4 class="font-semibold text-slate-800 mb-2">Technical Blogs</h4>
+                  <p class="text-sm text-slate-600 mb-2">Medium, DEV Community, and personal blogs with detailed service explanations <a class="citation" href="https://medium.com/@deep-dive/aws-certified-solutions-architect-associate-exam-preparation-9d8c58ffeb73">[13]</a>
+                  </p>
+                  <a class="text-green-600 text-sm hover:underline" href="#">Find Blogs</a>
+                </div>
+                <div class="bg-white rounded-lg p-4 border-l-4 border-green-500">
+                  <h4 class="font-semibold text-slate-800 mb-2">Coding N Concepts</h4>
+                  <p class="text-sm text-slate-600 mb-2">Exam notes and service breakdowns by category <a class="citation" href="https://codingnconcepts.com/aws/aws-certified-solutions-architect-associate/">[165]</a>
+                  </p>
+                  <a class="text-green-600 text-sm hover:underline" href="#">Read Notes</a>
+                </div>
+                <div class="bg-white rounded-lg p-4 border-l-4 border-green-500">
+                  <h4 class="font-semibold text-slate-800 mb-2">SAA-C03 Specific Notes</h4>
+                  <p class="text-sm text-slate-600 mb-2">Updated repositories tailored for the latest exam version <a class="citation" href="https://github.com/nishagrawal/AWS-SAA-C03-Notes">[342]</a>
+                  </p>
+                  <a class="text-green-600 text-sm hover:underline" href="#">Access Notes</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resource Timeline -->
+          <div class="bg-slate-50 rounded-xl p-8">
+            <h3 class="font-serif text-2xl font-semibold mb-6 text-center text-slate-800">Resource Utilization Timeline</h3>
+            <div class="relative">
+              <div class="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-blue-200 rounded"></div>
+              <div class="space-y-8">
+                <div class="flex items-center">
+                  <div class="flex-1 text-right pr-8">
+                    <h4 class="font-semibold text-slate-800">Week 1-2</h4>
+                    <p class="text-sm text-slate-600">Official Exam Guide + AWS Documentation</p>
+                  </div>
+                  <div class="w-4 h-4 bg-blue-500 rounded-full relative z-10"></div>
+                  <div class="flex-1 pl-8"></div>
+                </div>
+                <div class="flex items-center">
+                  <div class="flex-1 pr-8"></div>
+                  <div class="w-4 h-4 bg-green-500 rounded-full relative z-10"></div>
+                  <div class="flex-1 text-left pl-8">
+                    <h4 class="font-semibold text-slate-800">Week 2-3</h4>
+                    <p class="text-sm text-slate-600">Well-Architected Framework + Community Notes</p>
+                  </div>
+                </div>
+                <div class="flex items-center">
+                  <div class="flex-1 text-right pr-8">
+                    <h4 class="font-semibold text-slate-800">Week 3-5</h4>
+                    <p class="text-sm text-slate-600">Service Deep Dives + Practice Questions</p>
+                  </div>
+                  <div class="w-4 h-4 bg-purple-500 rounded-full relative z-10"></div>
+                  <div class="flex-1 pl-8"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Study Plan Section -->
+      <section class="py-16 px-8 bg-gradient-to-br from-slate-50 to-blue-50" id="study-plan">
+        <div class="container mx-auto max-w-6xl">
+          <div class="text-center mb-12">
+            <h2 class="font-serif text-4xl font-semibold text-slate-800 mb-4">5-Week Study Plan (20 Hours/Week)</h2>
+            <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+              A structured approach designed for beginners with zero budget, emphasizing text-based learning and hands-on practice.
+            </p>
+          </div>
+
+          <!-- Weekly Plan Overview -->
+          <div class="grid lg:grid-cols-5 gap-6 mb-12">
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+              <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span class="text-blue-600 font-bold">1</span>
+                </div>
+                <h3 class="font-semibold text-slate-800">Foundational Knowledge</h3>
+              </div>
+              <div class="text-sm text-slate-600 space-y-2">
+                <div>• Exam Guide Review</div>
+                <div>• Core Services: IAM, EC2, S3, VPC</div>
+                <div>• AWS Free Tier Setup</div>
+                <div class="pt-2 border-t">
+                  <strong>Theory:</strong> 10 hours
+                  <br />
+                  <strong>Hands-on:</strong> 10 hours
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+              <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span class="text-green-600 font-bold">2</span>
+                </div>
+                <h3 class="font-semibold text-slate-800">Core Services Deep Dive</h3>
+              </div>
+              <div class="text-sm text-slate-600 space-y-2">
+                <div>• Domain 1: Secure Architectures</div>
+                <div>• Domain 2: Resilient Architectures</div>
+                <div>• Advanced VPC Configuration</div>
+                <div class="pt-2 border-t">
+                  <strong>Theory:</strong> 10 hours
+                  <br />
+                  <strong>Hands-on:</strong> 10 hours
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+              <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span class="text-purple-600 font-bold">3</span>
+                </div>
+                <h3 class="font-semibold text-slate-800">Architectural Principles</h3>
+              </div>
+              <div class="text-sm text-slate-600 space-y-2">
+                <div>• Domain 3: High Performance</div>
+                <div>• Well-Architected Framework</div>
+                <div>• Case Studies &amp; Scenarios</div>
+                <div class="pt-2 border-t">
+                  <strong>Case Studies:</strong> 10 hours
+                  <br />
+                  <strong>Review:</strong> 10 hours
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+              <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span class="text-orange-600 font-bold">4</span>
+                </div>
+                <h3 class="font-semibold text-slate-800">Cost Optimization</h3>
+              </div>
+              <div class="text-sm text-slate-600 space-y-2">
+                <div>• Domain 4: Cost Optimization</div>
+                <div>• Pricing Models &amp; Tools</div>
+                <div>• Practice Questions</div>
+                <div class="pt-2 border-t">
+                  <strong>Theory:</strong> 8 hours
+                  <br />
+                  <strong>Practice:</strong> 12 hours
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+              <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span class="text-red-600 font-bold">5</span>
+                </div>
+                <h3 class="font-semibold text-slate-800">Exam Readiness</h3>
+              </div>
+              <div class="text-sm text-slate-600 space-y-2">
+                <div>• Full-Length Practice Exams</div>
+                <div>• Weak Area Review</div>
+                <div>• Exam Strategy</div>
+                <div class="pt-2 border-t">
+                  <strong>Review:</strong> 5 hours
+                  <br />
+                  <strong>Practice Exams:</strong> 15 hours
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detailed Weekly Breakdown -->
+          <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="bg-slate-800 text-white px-8 py-4">
+              <h3 class="font-serif text-xl font-semibold">Detailed Weekly Breakdown</h3>
+            </div>
+            <div class="p-8">
+              <div class="space-y-8">
+                <!-- Week 1-2 -->
+                <div class="border-l-4 border-blue-500 pl-6">
+                  <h4 class="font-semibold text-slate-800 text-lg mb-3">Phase 1: Foundational Knowledge (Weeks 1-2)</h4>
+                  <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h5 class="font-medium text-slate-700 mb-2">Theory Focus (10 hours/week)</h5>
+                      <ul class="text-sm text-slate-600 space-y-1">
+                        <li>• Study AWS SAA-C03 Exam Guide thoroughly <a class="citation" href="https://d1.awsstatic.com/training-and-certification/docs-sa-assoc/AWS-Certified-Solutions-Architect-Associate_Exam-Guide.pdf">[141]</a>
+                        </li>
+                        <li>• Complete AWS Cloud Practitioner Essentials (if needed) <a class="citation" href="https://dev.to/prasadkpd/best-free-aws-cloud-courses-for-2023-41be">[30]</a>
+                        </li>
+                        <li>• Deep dive into core services using official documentation</li>
+                        <li>• Start reading AWS Well-Architected Framework whitepaper <a class="citation" href="https://d1.awsstatic.com/whitepapers/AWS_Well-Architected_Framework.pdf">[89]</a>
+                        </li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h5 class="font-medium text-slate-700 mb-2">Hands-On Focus (10 hours/week)</h5>
+                      <ul class="text-sm text-slate-600 space-y-1">
+                        <li>• Set up AWS Free Tier account <a class="citation" href="https://www.examcoachai.com/blog/how-to-use-aws-free-tier-to-prepare-for-certification-exams">[278]</a>
+                        </li>
+                        <li>• Launch EC2 instances and configure security groups</li>
+                        <li>• Create and configure S3 buckets with various settings</li>
+                        <li>• Design basic VPC with public and private subnets</li>
+                        <li>• Configure IAM users, groups, and policies</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Week 2-4 -->
+                <div class="border-l-4 border-green-500 pl-6">
+                  <h4 class="font-semibold text-slate-800 text-lg mb-3">Phase 2: Deep Dive into Core Services (Weeks 2-4)</h4>
+                  <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h5 class="font-medium text-slate-700 mb-2">Domain-Specific Study (10 hours/week)</h5>
+                      <ul class="text-sm text-slate-600 space-y-1">
+                        <li>• <strong>Domain 1:</strong> KMS, CloudTrail, AWS Config, Shield <a class="citation" href="https://codingnconcepts.com/aws/aws-certified-solutions-architect-associate/">[371]</a>
+                        </li>
+                        <li>• <strong>Domain 2:</strong> ELB, Auto Scaling, SQS, SNS, Route 53 <a class="citation" href="https://github.com/keenanromain/AWS-SAA-C02-Study-Guide">[12]</a>
+                        </li>
+                        <li>• <strong>Domain 3:</strong> CloudFront, Lambda, DynamoDB, ElastiCache</li>
+                        <li>• <strong>Domain 4:</strong> Cost Explorer, Budgets, Pricing Models</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h5 class="font-medium text-slate-700 mb-2">Advanced Hands-On (10 hours/week)</h5>
+                      <ul class="text-sm text-slate-600 space-y-1">
+                        <li>• Deploy highly available web application</li>
+                        <li>• Configure CloudFront with S3 static website</li>
+                        <li>• Build serverless application with Lambda</li>
+                        <li>• Experiment with RDS read replicas <a class="citation" href="https://www.examsnap.com/certification/complete-2025-aws-solutions-architect-saa-c03-exam-questions/">[268]</a>
+                        </li>
+                        <li>• Implement security measures and monitoring</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Week 3-4 -->
+                <div class="border-l-4 border-purple-500 pl-6">
+                  <h4 class="font-semibold text-slate-800 text-lg mb-3">Phase 3: Architectural Principles and Design (Weeks 3-4)</h4>
+                  <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h5 class="font-medium text-slate-700 mb-2">Case Studies &amp; Design (10 hours/week)</h5>
+                      <ul class="text-sm text-slate-600 space-y-1">
+                        <li>• Study common architectural patterns</li>
+                        <li>• Deep dive into Well-Architected Framework pillars <a class="citation" href="https://tutorialsdojo.com/aws-certified-solutions-architect-associate-saa-c03/">[142]</a>
+                        </li>
+                        <li>• Analyze AWS case studies and scenarios</li>
+                        <li>• Practice design trade-offs and justifications</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h5 class="font-medium text-slate-700 mb-2">Review &amp; Practice (10 hours/week)</h5>
+                      <ul class="text-sm text-slate-600 space-y-1">
+                        <li>• Create service comparison tables</li>
+                        <li>• Summarize use cases and limitations</li>
+                        <li>• Attempt topic-specific practice questions</li>
+                        <li>• Identify and address weak areas</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Week 5 -->
+                <div class="border-l-4 border-red-500 pl-6">
+                  <h4 class="font-semibold text-slate-800 text-lg mb-3">Phase 4: Review, Practice, and Exam Readiness (Week 5)</h4>
+                  <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <h5 class="font-medium text-slate-700 mb-2">Comprehensive Review (5 hours)</h5>
+                      <ul class="text-sm text-slate-600 space-y-1">
+                        <li>• Review all notes and summaries</li>
+                        <li>• Focus on challenging concepts</li>
+                        <li>• Final consolidation of knowledge</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h5 class="font-medium text-slate-700 mb-2">Practice Exams &amp; Strategy (15 hours)</h5>
+                      <ul class="text-sm text-slate-600 space-y-1">
+                        <li>• Take full-length timed practice exams</li>
+                        <li>• Analyze incorrect answers thoroughly</li>
+                        <li>• Develop time management strategy</li>
+                        <li>• Practice question interpretation</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hands-On Practice Section -->
+      <section class="py-16 px-8 bg-white" id="hands-on">
+        <div class="container mx-auto max-w-6xl">
+          <div class="text-center mb-12">
+            <h2 class="font-serif text-4xl font-semibold text-slate-800 mb-4">Hands-On Practice with AWS Free Tier</h2>
+            <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+              Maximize your practical learning with the AWS Free Tier while staying within budget constraints.
+            </p>
+          </div>
+
+          <!-- Free Tier Setup -->
+          <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-8 mb-12">
+            <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+              <i class="fas fa-cog mr-3 text-green-600"></i>
+              Setting Up AWS Free Tier Account
+            </h3>
+            <div class="grid md:grid-cols-2 gap-8">
+              <div>
+                <h4 class="font-semibold text-slate-800 mb-4">Account Requirements</h4>
+                <div class="space-y-3">
+                  <div class="flex items-start space-x-3">
+                    <i class="fas fa-credit-card text-blue-500 mt-1"></i>
+                    <div>
+                      <div class="font-medium">Payment Information</div>
+                      <div class="text-sm text-slate-600">Credit card required for identity verification <a class="citation" href="https://medium.com/@suyash-jain/aws-free-tier-trap-2025-whats-really-free-what-s-not-1f4b0d33d23a">[270]</a>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-start space-x-3">
+                    <i class="fas fa-phone text-green-500 mt-1"></i>
+                    <div>
+                      <div class="font-medium">Phone Verification</div>
+                      <div class="text-sm text-slate-600">Required for account security <a class="citation" href="https://www.examcoachai.com/blog/how-to-use-aws-free-tier-to-prepare-for-certification-exams">[278]</a>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-start space-x-3">
+                    <i class="fas fa-calendar text-purple-500 mt-1"></i>
+                    <div>
+                      <div class="font-medium">12 Months Free</div>
+                      <div class="text-sm text-slate-600">Most services free for first year <a class="citation" href="https://medium.com/@suyash-jain/aws-free-tier-trap-2025-whats-really-free-what-s-not-1f4b0d33d23a">[265]</a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 class="font-semibold text-slate-800 mb-4">Cost Management</h4>
+                <div class="space-y-3">
+                  <div class="flex items-start space-x-3">
+                    <i class="fas fa-bell text-orange-500 mt-1"></i>
+                    <div>
+                      <div class="font-medium">Billing Alerts</div>
+                      <div class="text-sm text-slate-600">Set up CloudWatch billing alarms <a class="citation" href="https://www.examcoachai.com/blog/how-to-use-aws-free-tier-to-prepare-for-certification-exams">[278]</a>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-start space-x-3">
+                    <i class="fas fa-chart-line text-red-500 mt-1"></i>
+                    <div>
+                      <div class="font-medium">Usage Monitoring</div>
+                      <div class="text-sm text-slate-600">Regularly check Billing Dashboard <a class="citation" href="https://www.sourcefuse.com/resources/blog/aws-free-tier-limits/">[287]</a>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-start space-x-3">
+                    <i class="fas fa-exclamation-triangle text-yellow-500 mt-1"></i>
+                    <div>
+                      <div class="font-medium">Free Tier Limits</div>
+                      <div class="text-sm text-slate-600">Understand what's included and excluded <a class="citation" href="https://cast.ai/blog/aws-free-tier-what-is-it-and-is-it-really-free/">[292]</a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Free Tier Services -->
+          <div class="bg-slate-50 rounded-xl p-8 mb-12">
+            <h3 class="font-serif text-2xl font-semibold mb-6 text-center text-slate-800">Key Free Tier Services for SAA-C03</h3>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div class="bg-white rounded-lg p-6 text-center shadow-sm">
+                <i class="fas fa-server text-3xl text-blue-500 mb-3"></i>
+                <h4 class="font-semibold text-slate-800 mb-2">Amazon EC2</h4>
+                <p class="text-sm text-slate-600 mb-2">750 hours/month of t2.micro or t3.micro <a class="citation" href="https://medium.com/@suyash-jain/aws-free-tier-trap-2025-whats-really-free-what-s-not-1f4b0d33d23a">[276]</a>
+                </p>
+                <div class="text-xs text-green-600 font-medium">12 Months Free</div>
+              </div>
+              <div class="bg-white rounded-lg p-6 text-center shadow-sm">
+                <i class="fas fa-database text-3xl text-green-500 mb-3"></i>
+                <h4 class="font-semibold text-slate-800 mb-2">Amazon S3</h4>
+                <p class="text-sm text-slate-600 mb-2">5 GB of Standard Storage <a class="citation" href="https://medium.com/@suyash-jain/aws-free-tier-trap-2025-whats-really-free-what-s-not-1f4b0d33d23a">[278]</a>
+                </p>
+                <div class="text-xs text-green-600 font-medium">12 Months Free</div>
+              </div>
+              <div class="bg-white rounded-lg p-6 text-center shadow-sm">
+                <i class="fas fa-database text-3xl text-purple-500 mb-3"></i>
+                <h4 class="font-semibold text-slate-800 mb-2">Amazon RDS</h4>
+                <p class="text-sm text-slate-600 mb-2">750 hours/month of db.t2.micro <a class="citation" href="https://repost.aws/questions/QUEy6VZlhBRDSG0f5ppIpasw/charged-for-aws-free-tier-when-using-rds-and-s3">[289]</a>
+                </p>
+                <div class="text-xs text-green-600 font-medium">12 Months Free</div>
+              </div>
+              <div class="bg-white rounded-lg p-6 text-center shadow-sm">
+                <i class="fas fa-code text-3xl text-orange-500 mb-3"></i>
+                <h4 class="font-semibold text-slate-800 mb-2">AWS Lambda</h4>
+                <p class="text-sm text-slate-600 mb-2">1M requests/month + 3.2M seconds compute <a class="citation" href="https://cast.ai/blog/aws-free-tier-what-is-it-and-is-it-really-free/">[292]</a>
+                </p>
+                <div class="text-xs text-blue-600 font-medium">Always Free</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Practical Labs -->
+          <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="bg-slate-800 text-white px-8 py-4">
+              <h3 class="font-serif text-xl font-semibold flex items-center">
+                <i class="fas fa-flask mr-3"></i>
+                Practical Labs and Exercises
+              </h3>
+            </div>
+            <div class="p-8">
+              <div class="grid lg:grid-cols-2 gap-8">
+                <div>
+                  <h4 class="font-semibold text-slate-800 mb-4">Basic Labs (Week 1-2)</h4>
+                  <div class="space-y-4">
+                    <div class="border-l-4 border-blue-500 pl-4">
+                      <h5 class="font-medium text-slate-800">EC2 Instance Setup</h5>
+                      <p class="text-sm text-slate-600">Launch t2.micro, install web server, host simple page <a class="citation" href="https://dev.to/aws-builders/building-a-scalable-web-application-on-aws-using-core-services-perfect-for-beginners-22h8">[64]</a>
+                      </p>
+                    </div>
+                    <div class="border-l-4 border-green-500 pl-4">
+                      <h5 class="font-medium text-slate-800">S3 Configuration</h5>
+                      <p class="text-sm text-slate-600">Create buckets, upload files, enable versioning, static website hosting <a class="citation" href="https://www.examcoachai.com/blog/how-to-use-aws-free-tier-to-prepare-for-certification-exams">[278]</a>
+                      </p>
+                    </div>
+                    <div class="border-l-4 border-purple-500 pl-4">
+                      <h5 class="font-medium text-slate-800">VPC Networking</h5>
+                      <p class="text-sm text-slate-600">Design VPC with public/private subnets, configure route tables <a class="citation" href="https://dev.to/aws-builders/building-a-scalable-web-application-on-aws-using-core-services-perfect-for-beginners-22h8">[64]</a>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 class="font-semibold text-slate-800 mb-4">Advanced Labs (Week 3-4)</h4>
+                  <div class="space-y-4">
+                    <div class="border-l-4 border-orange-500 pl-4">
+                      <h5 class="font-medium text-slate-800">High Availability</h5>
+                      <p class="text-sm text-slate-600">Deploy web app with ELB and Auto Scaling across multiple AZs</p>
+                    </div>
+                    <div class="border-l-4 border-red-500 pl-4">
+                      <h5 class="font-medium text-slate-800">Serverless Application</h5>
+                      <p class="text-sm text-slate-600">Build Lambda functions triggered by API Gateway and S3 events <a class="citation" href="https://www.linkedin.com/pulse/how-pass-aws-solutions-architect-associate-exam-5-steps-neal-k-davis-eqc3c">[269]</a>
+                      </p>
+                    </div>
+                    <div class="border-l-4 border-teal-500 pl-4">
+                      <h5 class="font-medium text-slate-800">Database Management</h5>
+                      <p class="text-sm text-slate-600">Configure RDS with read replicas, understanding Multi-AZ concepts</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Practice Exams Section -->
+      <section class="py-16 px-8 bg-gradient-to-br from-slate-50 to-blue-50" id="practice-exams">
+        <div class="container mx-auto max-w-6xl">
+          <div class="text-center mb-12">
+            <h2 class="font-serif text-4xl font-semibold text-slate-800 mb-4">Utilizing Free Practice Exams</h2>
+            <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+              Effectively use practice exams to gauge readiness and identify areas for improvement.
+            </p>
+          </div>
+
+          <div class="grid lg:grid-cols-2 gap-8 mb-12">
+            <!-- Sources -->
+            <div class="bg-white rounded-xl p-8 shadow-lg">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+                <i class="fas fa-search mr-3 text-blue-600"></i>
+                Finding Quality Practice Exams
+              </h3>
+              <div class="space-y-4">
+                <div class="border-l-4 border-blue-500 pl-4">
+                  <h4 class="font-semibold text-slate-800">Official AWS Sample Questions</h4>
+                  <p class="text-sm text-slate-600 mb-2">Most reliable source for understanding question format and difficulty <a class="citation" href="https://tutorialsdojo.com/top-5-free-aws-review-materials/">[47]</a>
+                  </p>
+                  <a class="text-blue-600 text-sm hover:underline" href="#">Access Official Samples</a>
+                </div>
+                <div class="border-l-4 border-green-500 pl-4">
+                  <h4 class="font-semibold text-slate-800">GitHub Repositories</h4>
+                  <p class="text-sm text-slate-600 mb-2">Community-generated practice tests and questions with answers <a class="citation" href="https://github.com/Ditectrev/AWS-Certified-Solutions-Architect-Associate-SAA-C03-Practice-Tests-Exams-Questions-Answers">[182]</a>
+                  </p>
+                  <a class="text-green-600 text-sm hover:underline" href="#">Browse GitHub Tests</a>
+                </div>
+                <div class="border-l-4 border-purple-500 pl-4">
+                  <h4 class="font-semibold text-slate-800">Community Platforms</h4>
+                  <p class="text-sm text-slate-600 mb-2">Reddit, Medium, and DEV Community often share free resources <a class="citation" href="https://dev.to/swatitiwarib/journey-to-aws-certified-saa-c02-free-resources-learning-path-and-more-544">[119]</a>
+                  </p>
+                  <a class="text-purple-600 text-sm hover:underline" href="#">Explore Communities</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Strategies -->
+            <div class="bg-white rounded-xl p-8 shadow-lg">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+                <i class="fas fa-chart-line mr-3 text-green-600"></i>
+                Effective Practice Strategies
+              </h3>
+              <div class="space-y-4">
+                <div class="flex items-start space-x-3">
+                  <i class="fas fa-clock text-blue-500 mt-1"></i>
+                  <div>
+                    <div class="font-medium">Simulate Real Exam Conditions</div>
+                    <div class="text-sm text-slate-600">Time yourself, find quiet space, avoid distractions</div>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <i class="fas fa-search text-green-500 mt-1"></i>
+                  <div>
+                    <div class="font-medium">Review Every Question</div>
+                    <div class="text-sm text-slate-600">Understand why correct answers are correct and incorrect ones are wrong</div>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <i class="fas fa-book text-purple-500 mt-1"></i>
+                  <div>
+                    <div class="font-medium">Reinforce Weak Areas</div>
+                    <div class="text-sm text-slate-600">Dive back into study materials for unfamiliar topics</div>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <i class="fas fa-chart-bar text-orange-500 mt-1"></i>
+                  <div>
+                    <div class="font-medium">Track Progress</div>
+                    <div class="text-sm text-slate-600">Monitor performance across multiple practice exams</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Practice Exam Timeline -->
+          <div class="bg-white rounded-xl shadow-lg p-8">
+            <h3 class="font-serif text-2xl font-semibold mb-6 text-center text-slate-800">Practice Exam Progression</h3>
+            <div class="relative">
+              <div class="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-blue-200 rounded hidden md:block"></div>
+              <div class="space-y-8">
+                <div class="flex flex-col md:flex-row items-center">
+                  <div class="md:flex-1 md:text-right md:pr-8 w-full mb-4 md:mb-0">
+                    <h4 class="font-semibold text-slate-800">Week 3-4</h4>
+                    <p class="text-sm text-slate-600">Topic-specific quizzes (10-20 questions)</p>
+                    <div class="text-xs text-slate-500">Focus on weak areas</div>
+                  </div>
+                  <div class="w-4 h-4 bg-blue-500 rounded-full relative z-10 flex-shrink-0"></div>
+                  <div class="md:flex-1 md:pl-8 w-full mt-4 md:mt-0"></div>
+                </div>
+                <div class="flex flex-col md:flex-row items-center">
+                  <div class="md:flex-1 md:pr-8 w-full mb-4 md:mb-0"></div>
+                  <div class="w-4 h-4 bg-green-500 rounded-full relative z-10 flex-shrink-0"></div>
+                  <div class="md:flex-1 md:text-left md:pl-8 w-full mt-4 md:mt-0">
+                    <h4 class="font-semibold text-slate-800">Week 4-5</h4>
+                    <p class="text-sm text-slate-600">Half-length exams (30-40 questions)</p>
+                    <div class="text-xs text-slate-500">Build stamina and timing</div>
+                  </div>
+                </div>
+                <div class="flex flex-col md:flex-row items-center">
+                  <div class="md:flex-1 md:text-right md:pr-8 w-full mb-4 md:mb-0">
+                    <h4 class="font-semibold text-slate-800">Week 5</h4>
+                    <p class="text-sm text-slate-600">Full-length timed exams (65 questions)</p>
+                    <div class="text-xs text-slate-500">Final readiness assessment</div>
+                  </div>
+                  <div class="w-4 h-4 bg-red-500 rounded-full relative z-10 flex-shrink-0"></div>
+                  <div class="md:flex-1 md:pl-8 w-full mt-4 md:mt-0"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Test-Taking Strategies -->
+      <section class="py-16 px-8 bg-white" id="strategies">
+        <div class="container mx-auto max-w-6xl">
+          <div class="text-center mb-12">
+            <h2 class="font-serif text-4xl font-semibold text-slate-800 mb-4">Exam Preparation and Test-Taking Strategies</h2>
+            <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+              Master the art of taking AWS exams with targeted strategies for text-based learners.
+            </p>
+          </div>
+
+          <div class="grid lg:grid-cols-3 gap-8 mb-12">
+            <!-- Study Techniques -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+                <i class="fas fa-book-open mr-3 text-blue-600"></i>
+                Text-Based Learning Techniques
+              </h3>
+              <div class="space-y-4">
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Active Reading</h4>
+                  <p class="text-sm text-slate-600">Engage with material through note-taking, summarization, and questioning</p>
+                </div>
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Visual Mapping</h4>
+                  <p class="text-sm text-slate-600">Create mind maps and diagrams to visualize service relationships</p>
+                </div>
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Flashcards</h4>
+                  <p class="text-sm text-slate-600">Digital flashcards for service limits, acronyms, and key facts</p>
+                </div>
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Teaching Method</h4>
+                  <p class="text-sm text-slate-600">Explain concepts to others to solidify understanding</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Time Management -->
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-8">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+                <i class="fas fa-clock mr-3 text-green-600"></i>
+                Time Management
+              </h3>
+              <div class="space-y-4">
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Two-Pass Strategy</h4>
+                  <p class="text-sm text-slate-600">First pass: answer confident questions. Second pass: review marked questions <a class="citation" href="https://vocal.media/education/aws-certified-solutions-architect-associate-saa-c03-exam-guide-pdf-free-download">[374]</a>
+                  </p>
+                </div>
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Pace Yourself</h4>
+                  <p class="text-sm text-slate-600">Average 2 minutes per question. Don't spend more than 3 minutes on any single question initially</p>
+                </div>
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Flag for Review</h4>
+                  <p class="text-sm text-slate-600">Use "Mark for Review" feature for uncertain questions and return later</p>
+                </div>
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">No Penalty for Guessing</h4>
+                  <p class="text-sm text-slate-600">Always make an educated guess rather than leaving questions unanswered</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Question Analysis -->
+            <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-8">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+                <i class="fas fa-search-plus mr-3 text-purple-600"></i>
+                Question Analysis
+              </h3>
+              <div class="space-y-4">
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Identify Keywords</h4>
+                  <p class="text-sm text-slate-600">Pay attention to words like "MOST," "BEST," "LEAST," "COST-EFFECTIVE" <a class="citation" href="https://www.linkedin.com/pulse/aws-solution-architect-activity-7335247875771142144-m2Ah">[234]</a>
+                  </p>
+                </div>
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Understand Scenarios</h4>
+                  <p class="text-sm text-slate-600">Read questions carefully to identify business needs and constraints before looking at answers</p>
+                </div>
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Eliminate Distractors</h4>
+                  <p class="text-sm text-slate-600">Remove obviously incorrect options to improve guessing odds</p>
+                </div>
+                <div class="bg-white rounded-lg p-4">
+                  <h4 class="font-semibold text-slate-800 mb-2">Think Like an Architect</h4>
+                  <p class="text-sm text-slate-600">Consider trade-offs between solutions and apply Well-Architected principles</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Exam Day Strategy -->
+          <div class="bg-slate-800 text-white rounded-xl p-8">
+            <h3 class="font-serif text-2xl font-semibold mb-6 text-center">Final Exam Day Strategy</h3>
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="text-center">
+                <i class="fas fa-calendar-check text-3xl text-blue-400 mb-4"></i>
+                <h4 class="font-semibold mb-2">Before Exam</h4>
+                <ul class="text-sm text-slate-300 space-y-1">
+                  <li>• Review exam logistics</li>
+                  <li>• Prepare identification</li>
+                  <li>• Test system requirements</li>
+                  <li>• Get adequate rest</li>
+                </ul>
+              </div>
+              <div class="text-center">
+                <i class="fas fa-laptop text-3xl text-green-400 mb-4"></i>
+                <h4 class="font-semibold mb-2">During Exam</h4>
+                <ul class="text-sm text-slate-300 space-y-1">
+                  <li>• Manage time effectively</li>
+                  <li>• Read questions carefully</li>
+                  <li>• Flag difficult questions</li>
+                  <li>• Stay calm and focused</li>
+                </ul>
+              </div>
+              <div class="text-center">
+                <i class="fas fa-trophy text-3xl text-yellow-400 mb-4"></i>
+                <h4 class="font-semibold mb-2">After Exam</h4>
+                <ul class="text-sm text-slate-300 space-y-1">
+                  <li>• Review score report</li>
+                  <li>• Identify areas for improvement</li>
+                  <li>• Celebrate completion</li>
+                  <li>• Plan next steps</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Community Resources -->
+      <section class="py-16 px-8 bg-gradient-to-br from-slate-50 to-blue-50" id="communities">
+        <div class="container mx-auto max-w-6xl">
+          <div class="text-center mb-12">
+            <h2 class="font-serif text-4xl font-semibold text-slate-800 mb-4">Additional Free Resources and Communities</h2>
+            <p class="text-xl text-slate-600 max-w-3xl mx-auto">
+              Connect with the AWS community to enhance your learning experience and get support.
+            </p>
+          </div>
+
+          <div class="grid lg:grid-cols-2 gap-8 mb-12">
+            <!-- AWS Skill Builder -->
+            <div class="bg-white rounded-xl p-8 shadow-lg">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+                <i class="fas fa-graduation-cap mr-3 text-blue-600"></i>
+                AWS Skill Builder
+              </h3>
+              <div class="space-y-4">
+                <div class="border-l-4 border-blue-500 pl-4">
+                  <h4 class="font-semibold text-slate-800">AWS Cloud Practitioner Essentials</h4>
+                  <p class="text-sm text-slate-600 mb-2">Free foundational course for beginners <a class="citation" href="https://dev.to/prasadkpd/best-free-aws-cloud-courses-for-2023-41be">[30]</a>
+                  </p>
+                  <a class="text-blue-600 text-sm hover:underline" href="#">Access Course</a>
+                </div>
+                <div class="border-l-4 border-green-500 pl-4">
+                  <h4 class="font-semibold text-slate-800">Ramp-Up Guide: Solutions Architect</h4>
+                  <p class="text-sm text-slate-600 mb-2">Learning paths and self-paced labs <a class="citation" href="https://d1.awsstatic.com/training-and-certification/ramp-up_guides/Ramp-Up_Guide_Architect.pdf">[80]</a>
+                  </p>
+                  <a class="text-green-600 text-sm hover:underline" href="#">View Learning Path</a>
+                </div>
+                <div class="border-l-4 border-purple-500 pl-4">
+                  <h4 class="font-semibold text-slate-800">Digital Training Courses</h4>
+                  <p class="text-sm text-slate-600 mb-2">Various free courses with text-based materials <a class="citation" href="https://dev.to/swatitiwarib/journey-to-aws-certified-saa-c02-free-resources-learning-path-and-more-544">[1]</a>
+                  </p>
+                  <a class="text-purple-600 text-sm hover:underline" href="#">Browse Courses</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Online Communities -->
+            <div class="bg-white rounded-xl p-8 shadow-lg">
+              <h3 class="font-serif text-2xl font-semibold mb-6 text-slate-800 flex items-center">
+                <i class="fas fa-users mr-3 text-green-600"></i>
+                Online Communities
+              </h3>
+              <div class="space-y-4">
+                <div class="flex items-start space-x-3">
+                  <i class="fab fa-reddit text-red-500 text-xl mt-1"></i>
+                  <div>
+                    <div class="font-semibold text-slate-800">Reddit Communities</div>
+                    <div class="text-sm text-slate-600">r/aws, r/AWSCertifications - active discussions and resource sharing</div>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <i class="fab fa-stack-overflow text-orange-500 text-xl mt-1"></i>
+                  <div>
+                    <div class="font-semibold text-slate-800">Stack Overflow</div>
+                    <div class="text-sm text-slate-600">Technical questions and answers from AWS professionals</div>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <i class="fas fa-comments text-blue-500 text-xl mt-1"></i>
+                  <div>
+                    <div class="font-semibold text-slate-800">AWS Developer Forums</div>
+                    <div class="text-sm text-slate-600">Official AWS forums for service-specific discussions</div>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <i class="fab fa-discord text-purple-500 text-xl mt-1"></i>
+                  <div>
+                    <div class="font-semibold text-slate-800">Discord &amp; Study Groups</div>
+                    <div class="text-sm text-slate-600">Find study groups through social media and community platforms</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Community Engagement Tips -->
+          <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8">
+            <h3 class="font-serif text-2xl font-semibold mb-6 text-center text-slate-800">Maximizing Community Benefits</h3>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div class="text-center">
+                <i class="fas fa-question-circle text-3xl text-blue-500 mb-3"></i>
+                <h4 class="font-semibold text-slate-800 mb-2">Ask Specific Questions</h4>
+                <p class="text-sm text-slate-600">Provide context and show what you've already tried</p>
+              </div>
+              <div class="text-center">
+                <i class="fas fa-search text-3xl text-green-500 mb-3"></i>
+                <h4 class="font-semibold text-slate-800 mb-2">Search First</h4>
+                <p class="text-sm text-slate-600">Check if your question has already been answered</p>
+              </div>
+              <div class="text-center">
+                <i class="fas fa-share-alt text-3xl text-purple-500 mb-3"></i>
+                <h4 class="font-semibold text-slate-800 mb-2">Share Resources</h4>
+                <p class="text-sm text-slate-600">Contribute helpful materials you discover</p>
+              </div>
+              <div class="text-center">
+                <i class="fas fa-handshake text-3xl text-orange-500 mb-3"></i>
+                <h4 class="font-semibold text-slate-800 mb-2">Join Study Groups</h4>
+                <p class="text-sm text-slate-600">Find accountability partners and motivation</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="bg-slate-800 text-white py-12 px-8">
+        <div class="container mx-auto max-w-6xl">
+          <div class="text-center">
+            <h3 class="font-serif text-2xl font-semibold mb-4">Ready to Begin Your AWS Journey?</h3>
+            <p class="text-slate-300 mb-6 max-w-2xl mx-auto">
+              This study plan provides everything you need to pass the AWS SAA-C03 exam with zero budget and text-based learning preferences. Stay consistent, practice regularly, and leverage the power of community knowledge.
+            </p>
+            <div class="flex justify-center space-x-6 text-sm">
+              <div class="flex items-center space-x-2">
+                <i class="fas fa-calendar text-blue-400"></i>
+                <span>5 Weeks Total</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <i class="fas fa-clock text-green-400"></i>
+                <span>20 Hours/Week</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <i class="fas fa-dollar-sign text-yellow-400"></i>
+                <span>Zero Budget</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+    </main>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#f59e0b',
+                primaryTextColor: '#1f2937',
+                primaryBorderColor: '#d97706',
+                lineColor: '#64748b',
+                secondaryColor: '#3b82f6',
+                tertiaryColor: '#10b981',
+                background: '#ffffff',
+                mainBkg: '#ffffff',
+                secondaryBkg: '#f8fafc',
+                tertiaryBkg: '#e2e8f0',
+                // Enhanced contrast colors
+                primaryTextColor: '#1f2937',
+                secondaryTextColor: '#374151',
+                tertiaryTextColor: '#4b5563',
+                // Node colors with good contrast
+                cScale0: '#f59e0b',
+                cScale1: '#3b82f6', 
+                cScale2: '#10b981',
+                cScale3: '#8b5cf6',
+                cScale4: '#ef4444',
+                cScale5: '#ec4899',
+                cScale6: '#f97316',
+                // Text colors for nodes
+                cScaleLabel0: '#1f2937',
+                cScaleLabel1: '#ffffff',
+                cScaleLabel2: '#ffffff',
+                cScaleLabel3: '#ffffff',
+                cScaleLabel4: '#ffffff',
+                cScaleLabel5: '#ffffff',
+                cScaleLabel6: '#ffffff'
+            },
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true,
+                curve: 'basis',
+                padding: 20
+            },
+            fontFamily: 'Inter, sans-serif',
+            fontSize: 14
+        });
+
+        // Initialize Mermaid Controls for zoom and pan
+        function initializeMermaidControls() {
+            const containers = document.querySelectorAll('.mermaid-container');
+
+            containers.forEach(container => {
+            const mermaidElement = container.querySelector('.mermaid');
+            let scale = 1;
+            let isDragging = false;
+            let startX, startY, translateX = 0, translateY = 0;
+
+            // 触摸相关状态
+            let isTouch = false;
+            let touchStartTime = 0;
+            let initialDistance = 0;
+            let initialScale = 1;
+            let isPinching = false;
+
+            // Zoom controls
+            const zoomInBtn = container.querySelector('.zoom-in');
+            const zoomOutBtn = container.querySelector('.zoom-out');
+            const resetBtn = container.querySelector('.reset-zoom');
+            const fullscreenBtn = container.querySelector('.fullscreen');
+
+            function updateTransform() {
+                mermaidElement.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+
+                if (scale > 1) {
+                container.classList.add('zoomed');
+                } else {
+                container.classList.remove('zoomed');
+                }
+
+                mermaidElement.style.cursor = isDragging ? 'grabbing' : 'grab';
+            }
+
+            if (zoomInBtn) {
+                zoomInBtn.addEventListener('click', () => {
+                scale = Math.min(scale * 1.25, 4);
+                updateTransform();
+                });
+            }
+
+            if (zoomOutBtn) {
+                zoomOutBtn.addEventListener('click', () => {
+                scale = Math.max(scale / 1.25, 0.3);
+                if (scale <= 1) {
+                    translateX = 0;
+                    translateY = 0;
+                }
+                updateTransform();
+                });
+            }
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                scale = 1;
+                translateX = 0;
+                translateY = 0;
+                updateTransform();
+                });
+            }
+
+            if (fullscreenBtn) {
+                fullscreenBtn.addEventListener('click', () => {
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    container.webkitRequestFullscreen();
+                } else if (container.msRequestFullscreen) {
+                    container.msRequestFullscreen();
+                }
+                });
+            }
+
+            // Mouse Events
+            mermaidElement.addEventListener('mousedown', (e) => {
+                if (isTouch) return; // 如果是触摸设备，忽略鼠标事件
+
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                mermaidElement.style.cursor = 'grabbing';
+                updateTransform();
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging && !isTouch) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateTransform();
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging && !isTouch) {
+                isDragging = false;
+                mermaidElement.style.cursor = 'grab';
+                updateTransform();
+                }
+            });
+
+            document.addEventListener('mouseleave', () => {
+                if (isDragging && !isTouch) {
+                isDragging = false;
+                mermaidElement.style.cursor = 'grab';
+                updateTransform();
+                }
+            });
+
+            // 获取两点之间的距离
+            function getTouchDistance(touch1, touch2) {
+                return Math.hypot(
+                touch2.clientX - touch1.clientX,
+                touch2.clientY - touch1.clientY
+                );
+            }
+
+            // Touch Events - 触摸事件处理
+            mermaidElement.addEventListener('touchstart', (e) => {
+                isTouch = true;
+                touchStartTime = Date.now();
+
+                if (e.touches.length === 1) {
+                // 单指拖动
+                isPinching = false;
+                isDragging = true;
+
+                const touch = e.touches[0];
+                startX = touch.clientX - translateX;
+                startY = touch.clientY - translateY;
+
+                } else if (e.touches.length === 2) {
+                // 双指缩放
+                isPinching = true;
+                isDragging = false;
+
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                initialDistance = getTouchDistance(touch1, touch2);
+                initialScale = scale;
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            mermaidElement.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && isDragging && !isPinching) {
+                // 单指拖动
+                const touch = e.touches[0];
+                translateX = touch.clientX - startX;
+                translateY = touch.clientY - startY;
+                updateTransform();
+
+                } else if (e.touches.length === 2 && isPinching) {
+                // 双指缩放
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = getTouchDistance(touch1, touch2);
+
+                if (initialDistance > 0) {
+                    const newScale = Math.min(Math.max(
+                    initialScale * (currentDistance / initialDistance),
+                    0.3
+                    ), 4);
+                    scale = newScale;
+                    updateTransform();
+                }
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            mermaidElement.addEventListener('touchend', (e) => {
+                // 重置状态
+                if (e.touches.length === 0) {
+                isDragging = false;
+                isPinching = false;
+                initialDistance = 0;
+
+                // 延迟重置isTouch，避免鼠标事件立即触发
+                setTimeout(() => {
+                    isTouch = false;
+                }, 100);
+                } else if (e.touches.length === 1 && isPinching) {
+                // 从双指变为单指，切换为拖动模式
+                isPinching = false;
+                isDragging = true;
+
+                const touch = e.touches[0];
+                startX = touch.clientX - translateX;
+                startY = touch.clientY - translateY;
+                }
+
+                updateTransform();
+            });
+
+            mermaidElement.addEventListener('touchcancel', (e) => {
+                isDragging = false;
+                isPinching = false;
+                initialDistance = 0;
+
+                setTimeout(() => {
+                isTouch = false;
+                }, 100);
+
+                updateTransform();
+            });
+
+            // Enhanced wheel zoom with better center point handling
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = container.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                const newScale = Math.min(Math.max(scale * delta, 0.3), 4);
+
+                // Adjust translation to zoom towards center
+                if (newScale !== scale) {
+                const scaleDiff = newScale / scale;
+                translateX = translateX * scaleDiff;
+                translateY = translateY * scaleDiff;
+                scale = newScale;
+
+                if (scale <= 1) {
+                    translateX = 0;
+                    translateY = 0;
+                }
+
+                update translateX = 0;
+              translateY = 0;
+             }
+
+             updateTransform();
+            }
+         });
+
+         // Initialize display
+         updateTransform();
+        });
+     }
+
+        // Initialize mermaid controls when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMermaidControls();
+        });
+
+        // Mobile TOC Toggle
+        function toggleTOC() {
+            const toc = document.getElementById('toc');
+            toc.classList.toggle('open');
+        }
+
+        // Close TOC when clicking outside
+        document.addEventListener('click', function(event) {
+            const toc = document.getElementById('toc');
+            const hamburger = document.querySelector('.lg\\:hidden.fixed.top-4.left-4.z-50');
+            
+            // Check if click is outside TOC and not on hamburger button
+            if (toc.classList.contains('open') && 
+                !toc.contains(event.target) && 
+                event.target !== hamburger && 
+                !hamburger.contains(event.target)) {
+                toc.classList.remove('open');
+            }
+        });
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+                
+                // Close mobile TOC after clicking
+                if (window.innerWidth < 1024) {
+                    document.getElementById('toc').classList.remove('open');
+                }
+            });
+        });
+
+        // Highlight current section in TOC
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('section[id]');
+            const tocLinks = document.querySelectorAll('#toc a[href^="#"]');
+            
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - 100;
+                if (scrollY >= sectionTop) {
+                    current = section.getAttribute('id');
+                }
+            });
+            
+            tocLinks.forEach(link => {
+                link.classList.remove('bg-white', 'font-semibold');
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('bg-white', 'font-semibold');
+                }
+            });
+        });
+    </script>
+
+  </body>
+
+</html>
