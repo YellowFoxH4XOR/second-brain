@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>State-of-the-Art AI Learning Roadmap 2024</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --darker: #020617;
+            --light: #f8fafc;
+            --white: #ffffff;
+            --gray: #64748b;
+            --light-gray: #e2e8f0;
+            --node-bg: #1e293b;
+            --node-border: #334155;
+            --node-hover: #334155;
+            --roadmap-line: #334155;
+            --roadmap-bg: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--roadmap-bg);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .roadmap-container {
+            position: relative;
+            margin: 3rem 0;
+            padding: 2rem 0;
+        }
+
+        .roadmap-line {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 100%;
+            background: var(--roadmap-line);
+            border-radius: 3px;
+            z-index: 1;
+        }
+
+        .roadmap-nodes {
+            position: relative;
+            z-index: 2;
+        }
+
+        .roadmap-node {
+            display: flex;
+            margin-bottom: 4rem;
+            position: relative;
+        }
+
+        .roadmap-node:nth-child(odd) {
+            flex-direction: row;
+        }
+
+        .roadmap-node:nth-child(even) {
+            flex-direction: row-reverse;
+        }
+
+        .node-content {
+            flex: 1;
+            padding: 0 2rem;
+        }
+
+        .node-dot {
+            width: 30px;
+            height: 30px;
+            background: var(--primary);
+            border-radius: 50%;
+            position: relative;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-weight: 700;
+            box-shadow: 0 0 0 6px var(--roadmap-bg), 0 0 0 9px var(--node-border);
+            transition: all 0.3s ease;
+        }
+
+        .roadmap-node:hover .node-dot {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 8px var(--roadmap-bg), 0 0 0 12px var(--primary);
+        }
+
+        .node-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+
+        .roadmap-node:nth-child(odd) .node-card {
+            margin-right: 2rem;
+        }
+
+        .roadmap-node:nth-child(even) .node-card {
+            margin-left: 2rem;
+        }
+
+        .roadmap-node:hover .node-card {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+            border-color: var(--primary);
+        }
+
+        .node-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .node-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: var(--white);
+            flex-shrink: 0;
+        }
+
+        .node-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .node-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .node-details {
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .node-details.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .detail-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .detail-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .topics .detail-icon {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: var(--white);
+        }
+
+        .sub-topics {
+            margin-top: 1rem;
+        }
+
+        .sub-topic {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+            transition: transform 0.2s ease;
+        }
+
+        .sub-topic:hover {
+            transform: translateX(5px);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sub-topic-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .sub-topic-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+
+        .sub-topic-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .sota-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+            color: var(--white);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .topic-resources {
+            background: rgba(16, 185, 129, 0.05);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            border-left: 3px solid #10b981;
+        }
+
+        .topic-resources h5 {
+            color: #10b981;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .resource-list {
+            list-style: none;
+        }
+
+        .resource-list li {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            transition: transform 0.2s ease;
+        }
+
+        .resource-list li:hover {
+            transform: translateX(3px);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .resource-list a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .resource-list a:hover {
+            color: var(--primary-dark);
+        }
+
+        .resource-list i {
+            font-size: 0.8rem;
+            color: #10b981;
+        }
+
+        .topic-assignments {
+            background: rgba(245, 158, 11, 0.05);
+            border-radius: 8px;
+            padding: 0.75rem;
+            border-left: 3px solid #f59e0b;
+        }
+
+        .topic-assignments h5 {
+            color: #f59e0b;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .assignment-list {
+            list-style: none;
+        }
+
+        .assignment-list li {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: transform 0.2s ease;
+        }
+
+        .assignment-list li:hover {
+            transform: translateX(3px);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .assignment-list i {
+            color: #f59e0b;
+            font-size: 0.8rem;
+        }
+
+        .assignment-text {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .node-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            transition: color 0.3s ease;
+        }
+
+        .node-toggle:hover {
+            color: var(--primary);
+        }
+
+        .node-toggle i {
+            transition: transform 0.3s ease;
+        }
+
+        .node-toggle.active i {
+            transform: rotate(180deg);
+        }
+
+        .weekly-structure {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 3rem 0;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .weekly-structure h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .schedule-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            border-radius: 10px;
+            border-left: 3px solid var(--accent);
+            transition: transform 0.3s ease;
+        }
+
+        .schedule-item:hover {
+            transform: translateY(-3px);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .schedule-day {
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .schedule-desc {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .checkpoint {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 3rem 0;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid var(--success);
+        }
+
+        .checkpoint h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--success);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .checkpoint-list {
+            list-style: none;
+        }
+
+        .checkpoint-list li {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .checkpoint-list i {
+            color: var(--success);
+            font-size: 1.1rem;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem 0;
+            margin-top: 3rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--card-border);
+        }
+
+        .footer p {
+            margin-bottom: 0.5rem;
+        }
+
+        .floating-action {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--white);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .floating-action:hover {
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 1024px) {
+            .roadmap-line {
+                left: 30px;
+            }
+            
+            .roadmap-node {
+                flex-direction: row !important;
+                margin-left: 60px;
+            }
+            
+            .node-content {
+                padding: 0 0 0 2rem;
+            }
+            
+            .roadmap-node:nth-child(odd) .node-card,
+            .roadmap-node:nth-child(even) .node-card {
+                margin-left: 0;
+                margin-right: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2.5rem;
+            }
+            
+            .stats {
+                gap: 1.5rem;
+            }
+            
+            .roadmap-node {
+                margin-left: 40px;
+            }
+            
+            .node-content {
+                padding: 0 0 0 1rem;
+            }
+            
+            .node-card {
+                padding: 1rem;
+            }
+            
+            .node-title {
+                font-size: 1.2rem;
+            }
+            
+            .schedule-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>State-of-the-Art AI Learning Roadmap 2024</h1>
+            <p>The most comprehensive and up-to-date learning path to master artificial intelligence</p>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number">24</span>
+                    <span class="stat-label">Weeks</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">240</span>
+                    <span class="stat-label">Total Hours</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">4</span>
+                    <span class="stat-label">Phases</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">100%</span>
+                    <span class="stat-label">Free</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="roadmap-container">
+            <div class="roadmap-line"></div>
+            <div class="roadmap-nodes">
+                <!-- Phase 1 -->
+                <div class="roadmap-node">
+                    <div class="node-content">
+                        <div class="node-card">
+                            <div class="node-header">
+                                <div class="node-icon">
+                                    <i class="fas fa-cube"></i>
+                                </div>
+                                <div>
+                                    <h3 class="node-title">Phase 1: Foundations</h3>
+                                    <p class="node-subtitle">Weeks 1-4 • Building essential mathematical and programming groundwork</p>
+                                </div>
+                            </div>
+                            <button class="node-toggle" onclick="toggleNode(this)">
+                                <span>View Details</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="node-details">
+                                <div class="detail-section topics">
+                                    <div class="detail-header">
+                                        <div class="detail-icon">
+                                            <i class="fas fa-list"></i>
+                                        </div>
+                                        <h4 class="detail-title">Core Topics with Mapped Resources</h4>
+                                    </div>
+                                    <div class="sub-topics">
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Linear Algebra & Matrix Calculus</div>
+                                            </div>
+                                            <div class="sub-topic-desc">Vectors, matrices, tensor operations, eigenvalues, SVD, matrix derivatives, geometric interpretations</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://www.khanacademy.org/math/linear-algebra" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Khan Academy: Linear Algebra (Complete Course)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab" target="_blank">
+                                                            <i class="fab fa-youtube"></i>
+                                                            3Blue1Brown: Essence of Linear Algebra (Visual Intuition)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.youtube.com/playlist?list=PLMrJAkhIeNNR20Mz-VpzgQ6MkNp2xgj_m" target="_blank">
+                                                            <i class="fab fa-youtube"></i>
+                                                            3Blue1Brown: Essence of Calculus (For Matrix Calculus)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/ksopyla/machine_learning_math" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Machine Learning Math: Implementations from Scratch
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement vector/matrix operations from scratch in Python</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Complete all Khan Academy linear algebra exercises</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build eigenvalue decomposition implementation</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Calculus & Optimization</div>
+                                            </div>
+                                            <div class="sub-topic-desc">Derivatives, gradients, partial derivatives, chain rule, convex optimization, gradient descent variants</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://www.khanacademy.org/math/calculus-1" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Khan Academy: Calculus 1 (Single Variable)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.khanacademy.org/math/multivariable-calculus" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Khan Academy: Multivariable Calculus
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.coursera.org/learn/machine-learning" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Andrew Ng: Machine Learning (Weeks 1-3 for Optimization)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/ilguyi/optimization" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Optimization Algorithms from Scratch
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement gradient descent with momentum from scratch</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build Adam optimizer implementation</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Optimize convex functions using different methods</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Probability & Statistics</div>
+                                            </div>
+                                            <div class="sub-topic-desc">Probability distributions, Bayes' theorem, hypothesis testing, statistical inference, information theory</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://www.khanacademy.org/math/statistics-probability" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Khan Academy: Statistics and Probability
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.youtube.com/c/statquest" target="_blank">
+                                                            <i class="fab fa-youtube"></i>
+                                                            StatQuest with Josh Starmer (Statistics for ML)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.coursera.org/learn/bayesian-methods-in-machine-learning" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Bayesian Methods in Machine Learning
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/microsoft/ML-For-Beginners" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Microsoft ML for Beginners (Statistics Module)
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement probability distributions from scratch</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Statistical analysis of real datasets using Python</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build Naive Bayes classifier from scratch</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Python Programming & Data Science</div>
+                                            </div>
+                                            <div class="sub-topic-desc">Python syntax, data structures, OOP, NumPy, Pandas, Matplotlib, Seaborn, Jupyter notebooks</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://www.coursera.org/specializations/python" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Python for Everybody (Coursera Specialization)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://automatetheboringstuff.com/" target="_blank">
+                                                            <i class="fas fa-book-open"></i>
+                                                            Automate the Boring Stuff with Python (Free Book)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://numpy.org/doc/stable/user/quickstart.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            NumPy Quickstart Tutorial
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://pandas.pydata.org/docs/getting_started/index.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Pandas Getting Started Tutorials
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/jakevdp/PythonDataScienceHandbook" target="_blank">
+                                                            <i class="fas fa-book-open"></i>
+                                                            Python Data Science Handbook (Free)
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Complete Python for Everybody course</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Data analysis project using Pandas and NumPy</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Create data visualizations with Matplotlib/Seaborn</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="node-dot">1</div>
+                </div>
+
+                <!-- Phase 2 -->
+                <div class="roadmap-node">
+                    <div class="node-content">
+                        <div class="node-card">
+                            <div class="node-header">
+                                <div class="node-icon">
+                                    <i class="fas fa-brain"></i>
+                                </div>
+                                <div>
+                                    <h3 class="node-title">Phase 2: Machine Learning Fundamentals</h3>
+                                    <p class="node-subtitle">Weeks 5-8 • Understanding core ML concepts and algorithms</p>
+                                </div>
+                            </div>
+                            <button class="node-toggle" onclick="toggleNode(this)">
+                                <span>View Details</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="node-details">
+                                <div class="detail-section topics">
+                                    <div class="detail-header">
+                                        <div class="detail-icon">
+                                            <i class="fas fa-list"></i>
+                                        </div>
+                                        <h4 class="detail-title">Core Topics with Mapped Resources</h4>
+                                    </div>
+                                    <div class="sub-topics">
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Supervised Learning</div>
+                                            </div>
+                                            <div class="sub-topic-desc">Linear regression, logistic regression, decision trees, random forests, SVMs, ensemble methods</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://www.coursera.org/specializations/machine-learning-introduction" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Andrew Ng's ML Specialization (Supervised Learning Weeks)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.statlearning.com/" target="_blank">
+                                                            <i class="fas fa-book-open"></i>
+                                                            Introduction to Statistical Learning (Free Book)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://scikit-learn.org/stable/supervised_learning.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Scikit-learn Supervised Learning Guide
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.youtube.com/playlist?list=PLblh5JKOoLUICTaGLRoHQDuF_7q2GfuWR" target="_blank">
+                                                            <i class="fab fa-youtube"></i>
+                                                            StatQuest: Machine Learning Fundamentals
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement linear/logistic regression from scratch</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build classification system with multiple algorithms</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">House price prediction using ensemble methods</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Unsupervised Learning</div>
+                                            </div>
+                                            <div class="sub-topic-desc">K-means, hierarchical clustering, PCA, t-SNE, anomaly detection, dimensionality reduction</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://www.coursera.org/learn/unsupervised-learning" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Unsupervised Learning Specialization
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://scikit-learn.org/stable/modules/clustering.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Scikit-learn Clustering Algorithms
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.youtube.com/watch?v=4bRdHvlWlyQ" target="_blank">
+                                                            <i class="fab fa-youtube"></i>
+                                                            StatQuest: PCA Main Ideas
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/microsoft/ML-For-Beginners/tree/main/5-Clustering" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Microsoft ML for Beginners: Clustering
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Customer segmentation using clustering algorithms</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement PCA and t-SNE for dimensionality reduction</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Anomaly detection on real-world datasets</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Model Evaluation & Validation</div>
+                                            </div>
+                                            <div class="sub-topic-desc">Cross-validation, hyperparameter tuning, bias-variance tradeoff, metrics, feature engineering</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://scikit-learn.org/stable/modules/cross_validation.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Scikit-learn Cross-Validation Guide
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://scikit-learn.org/stable/modules/grid_search.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Scikit-learn Hyperparameter Tuning
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.kaggle.com/learn/feature-engineering" target="_blank">
+                                                            <i class="fas fa-trophy"></i>
+                                                            Kaggle: Feature Engineering Course
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/microsoft/ML-For-Beginners/tree/main/3-ML-Flow" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Microsoft ML for Beginners: ML Flow
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement cross-validation from scratch</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Hyperparameter tuning project with GridSearchCV</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Feature engineering for Kaggle competition</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">ML Engineering Basics</div>
+                                            </div>
+                                            <div class="sub-topic-desc">Scikit-learn, model deployment basics, data preprocessing, pipeline creation</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Scikit-learn Pipeline Documentation
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.kaggle.com/learn/data-cleaning" target="_blank">
+                                                            <i class="fas fa-trophy"></i>
+                                                            Kaggle: Data Cleaning Course
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/fastai/fastpages" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Fastpages: Model Deployment Basics
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.youtube.com/watch?v=4WqQF5aGK9w" target="_blank">
+                                                            <i class="fab fa-youtube"></i>
+                                                            ML Engineering Fundamentals
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build ML pipeline with Scikit-learn</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Deploy simple model using Flask/FastAPI</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Kaggle competition participation</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="node-dot">2</div>
+                </div>
+
+                <!-- Phase 3 -->
+                <div class="roadmap-node">
+                    <div class="node-content">
+                        <div class="node-card">
+                            <div class="node-header">
+                                <div class="node-icon">
+                                    <i class="fas fa-network-wired"></i>
+                                </div>
+                                <div>
+                                    <h3 class="node-title">Phase 3: Deep Learning & Neural Networks</h3>
+                                    <p class="node-subtitle">Weeks 9-12 • Neural networks, architectures, and frameworks</p>
+                                </div>
+                            </div>
+                            <button class="node-toggle" onclick="toggleNode(this)">
+                                <span>View Details</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="node-details">
+                                <div class="detail-section topics">
+                                    <div class="detail-header">
+                                        <div class="detail-icon">
+                                            <i class="fas fa-list"></i>
+                                        </div>
+                                        <h4 class="detail-title">Core Topics with Mapped Resources</h4>
+                                    </div>
+                                    <div class="sub-topics">
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Neural Network Fundamentals</div>
+                                            </div>
+                                            <div class="sub-topic-desc">Perceptrons, activation functions, backpropagation, optimization algorithms, regularization</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi" target="_blank">
+                                                            <i class="fab fa-youtube"></i>
+                                                            3Blue1Brown: Neural Networks (Visual Series)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="http://neuralnetworksanddeeplearning.com/" target="_blank">
+                                                            <i class="fas fa-book-open"></i>
+                                                            Neural Networks and Deep Learning (Free Book)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.coursera.org/learn/neural-networks-deep-learning" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Deep Learning Specialization (Course 1)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/mnielsen/neural-networks-and-deep-learning" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Neural Networks Code Implementations
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement neural network from scratch using NumPy</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build backpropagation algorithm from scratch</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement various activation functions</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Deep Learning Frameworks</div>
+                                            </div>
+                                            <div class="sub-topic-desc">PyTorch, TensorFlow, automatic differentiation, GPU acceleration, model training</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://pytorch.org/tutorials/" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            PyTorch Official Tutorials
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.tensorflow.org/tutorials" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            TensorFlow Official Tutorials
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://pytorch.org/assets/deep-learning/Deep-Learning-with-PyTorch.pdf" target="_blank">
+                                                            <i class="fas fa-book-open"></i>
+                                                            Deep Learning with PyTorch (Free Book)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/pytorch/pytorch" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            PyTorch GitHub Repository
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Complete PyTorch 60-minute blitz tutorial</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build neural network using PyTorch/TensorFlow</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement GPU acceleration for model training</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Convolutional Neural Networks</div>
+                                            </div>
+                                            <div class="sub-topic-desc">CNN architectures, transfer learning, object detection, segmentation, vision transformers</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="http://cs231n.stanford.edu/" target="_blank">
+                                                            <i class="fas fa-university"></i>
+                                                            Stanford CS231n: CNNs for Visual Recognition
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            PyTorch Vision Tutorial
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://huggingface.co/learn/vision-course" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Hugging Face Vision Course
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/rwightman/pytorch-image-models" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            PyTorch Image Models (timm)
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build CNN for image classification from scratch</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement transfer learning with pre-trained models</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build object detection system</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Sequential Models & Attention</div>
+                                            </div>
+                                            <div class="sub-topic-desc">RNNs, LSTMs, GRUs, attention mechanisms, transformer basics, sequence modeling</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="http://web.stanford.edu/class/cs224n/" target="_blank">
+                                                            <i class="fas fa-university"></i>
+                                                            Stanford CS224n: NLP with Deep Learning
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://colah.github.io/posts/2015-08-Understanding-LSTMs/" target="_blank">
+                                                            <i class="fas fa-blog"></i>
+                                                            Understanding LSTM Networks (Blog Post)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://arxiv.org/abs/1706.03762" target="_blank">
+                                                            <i class="fas fa-file-alt"></i>
+                                                            Attention Is All You Need (Original Paper)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://pytorch.org/tutorials/intermediate/char_rnn_classification_tutorial.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            PyTorch RNN Tutorial
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Sentiment analysis with RNNs/LSTMs</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement attention mechanism from scratch</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build text generation model with LSTMs</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="node-dot">3</div>
+                </div>
+
+                <!-- Phase 4 -->
+                <div class="roadmap-node">
+                    <div class="node-content">
+                        <div class="node-card">
+                            <div class="node-header">
+                                <div class="node-icon">
+                                    <i class="fas fa-rocket"></i>
+                                </div>
+                                <div>
+                                    <h3 class="node-title">Phase 4: State-of-the-Art AI <span class="sota-badge">SOTA</span></h3>
+                                    <p class="node-subtitle">Weeks 13-24 • Cutting-edge techniques and applications</p>
+                                </div>
+                            </div>
+                            <button class="node-toggle" onclick="toggleNode(this)">
+                                <span>View Details</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="node-details">
+                                <div class="detail-section topics">
+                                    <div class="detail-header">
+                                        <div class="detail-icon">
+                                            <i class="fas fa-list"></i>
+                                        </div>
+                                        <h4 class="detail-title">Core Topics with Mapped Resources</h4>
+                                    </div>
+                                    <div class="sub-topics">
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Transformers & Large Language Models <span class="sota-badge">SOTA</span></div>
+                                            </div>
+                                            <div class="sub-topic-desc">Transformer architecture, self-attention, BERT, GPT, LLaMA, prompt engineering, fine-tuning, RLHF</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://huggingface.co/learn/nlp-course" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Hugging Face NLP Course (Complete)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://arxiv.org/abs/1706.03762" target="_blank">
+                                                            <i class="fas fa-file-alt"></i>
+                                                            Attention Is All You Need (Transformer Paper)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/huggingface/transformers" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Hugging Face Transformers Documentation
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.promptingguide.ai/" target="_blank">
+                                                            <i class="fas fa-book-open"></i>
+                                                            Prompt Engineering Guide (Free)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/rasbt/LLMs-from-scratch" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Build LLM from Scratch (Book)
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build transformer from scratch</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Fine-tune LLM for specific task using Hugging Face</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Advanced prompt engineering project</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Generative AI & Diffusion Models <span class="sota-badge">SOTA</span></div>
+                                            </div>
+                                            <div class="sub-topic-desc">Diffusion models, GANs, VAEs, DALL-E, Stable Diffusion, Midjourney, text-to-image generation</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://huggingface.co/learn/diffusion-course" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            Hugging Face Diffusion Models Course
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/huggingface/diffusers" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Hugging Face Diffusers Library
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://arxiv.org/abs/2006.11239" target="_blank">
+                                                            <i class="fas fa-file-alt"></i>
+                                                            Denoising Diffusion Probabilistic Models
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.youtube.com/watch?v=fbLgFrlTnGU" target="_blank">
+                                                            <i class="fab fa-youtube"></i>
+                                                            But what is a GAN? (3Blue1Brown)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/CompVis/stable-diffusion" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Stable Diffusion GitHub
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement diffusion model from scratch</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Generate images using Stable Diffusion</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build GAN for image generation</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">Multimodal AI <span class="sota-badge">SOTA</span></div>
+                                            </div>
+                                            <div class="sub-topic-desc">CLIP, Flamingo, GPT-4V, vision-language models, cross-modal learning, multimodal reasoning</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://arxiv.org/abs/2103.00020" target="_blank">
+                                                            <i class="fas fa-file-alt"></i>
+                                                            Learning Transferable Visual Models From Natural Language Supervision (CLIP)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://huggingface.co/docs/transformers/model_doc/clip" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Hugging Face CLIP Documentation
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/openai/CLIP" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            OpenAI CLIP GitHub
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://arxiv.org/abs/2204.13598" target="_blank">
+                                                            <i class="fas fa-file-alt"></i>
+                                                            Flamingo: a Visual Language Model for Few-Shot Learning
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build image-text similarity system using CLIP</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement multimodal reasoning system</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Fine-tune multimodal model for specific task</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">AI Agents & Multi-Agent Systems <span class="sota-badge">SOTA</span></div>
+                                            </div>
+                                            <div class="sub-topic-desc">LangChain, LlamaIndex, AutoGen, CrewAI, RAG, agentic systems, tool use, planning</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://js.langchain.com/docs/introduction" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            LangChain Documentation
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.llamaindex.ai/" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            LlamaIndex Documentation
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/microsoft/autogen" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Microsoft AutoGen
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/joaomdmoura/crewAI" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            CrewAI Framework
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://js.langchain.com/docs/tutorials/rag" target="_blank">
+                                                            <i class="fas fa-graduation-cap"></i>
+                                                            LangChain RAG Tutorial
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build RAG system with LangChain/LlamaIndex</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Create AI agent with AutoGen/CrewAI</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Build multi-agent system for complex task</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">MLOps & LLMOps <span class="sota-badge">SOTA</span></div>
+                                            </div>
+                                            <div class="sub-topic-desc">Model deployment, monitoring, CI/CD, ML pipelines, distributed training, scaling LLMs</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://www.kubeflow.org/docs/" target="_blank">
+                                                            <i class="fas fa-docker"></i>
+                                                            Kubeflow Documentation
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.mlflow.org/docs/latest/index.html" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            MLflow Documentation
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/Netflix/metaflow" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Netflix Metaflow
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://www.dvc.org/doc" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            DVC (Data Version Control)
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/huggingface/accelerate" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Hugging Face Accelerate
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Set up ML pipeline with Kubeflow</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement model monitoring with MLflow</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Deploy LLM with scaling infrastructure</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sub-topic">
+                                            <div class="sub-topic-header">
+                                                <div class="sub-topic-title">AI Safety & Alignment <span class="sota-badge">SOTA</span></div>
+                                            </div>
+                                            <div class="sub-topic-desc">Fairness, bias, explainability, alignment, adversarial examples, robustness, AI ethics</div>
+                                            
+                                            <div class="topic-resources">
+                                                <h5><i class="fas fa-book"></i> Learning Resources</h5>
+                                                <ul class="resource-list">
+                                                    <li>
+                                                        <a href="https://www.alignmentforum.org/" target="_blank">
+                                                            <i class="fas fa-shield-alt"></i>
+                                                            AI Alignment Forum
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://arxiv.org/abs/1606.06565" target="_blank">
+                                                            <i class="fas fa-file-alt"></i>
+                                                            Concrete Problems in AI Safety
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://pair-code.github.io/what-if-tool/" target="_blank">
+                                                            <i class="fas fa-tools"></i>
+                                                            Google What-If Tool
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://github.com/microsoft/interpret" target="_blank">
+                                                            <i class="fas fa-code"></i>
+                                                            Microsoft InterpretML
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a href="https://openai.com/safety/" target="_blank">
+                                                            <i class="fas fa-shield-alt"></i>
+                                                            OpenAI Safety Research
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="topic-assignments">
+                                                <h5><i class="fas fa-tasks"></i> Practical Assignments</h5>
+                                                <ul class="assignment-list">
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Analyze model for bias and fairness</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Implement explainability techniques</span>
+                                                    </li>
+                                                    <li>
+                                                        <i class="fas fa-check-circle"></i>
+                                                        <span class="assignment-text">Generate and defend against adversarial examples</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="node-dot">4</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="structure" class="weekly-structure">
+            <h3><i class="fas fa-calendar-alt"></i> Weekly Schedule</h3>
+            <div class="schedule-grid">
+                <div class="schedule-item">
+                    <div class="schedule-day">Monday-Wednesday</div>
+                    <div class="schedule-desc">Study core materials (4-5 hours)</div>
+                </div>
+                <div class="schedule-item">
+                    <div class="schedule-day">Thursday-Friday</div>
+                    <div class="schedule-desc">Complete coding assignments (3-4 hours)</div>
+                </div>
+                <div class="schedule-item">
+                    <div class="schedule-day">Weekend</div>
+                    <div class="schedule-desc">Review, quiz, and next week preview (2-3 hours)</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="checkpoints" class="checkpoint">
+            <h3><i class="fas fa-flag-checkered"></i> Checkpoints</h3>
+            <ul class="checkpoint-list">
+                <li>
+                    <i class="fas fa-check-circle"></i>
+                    <span><strong>End of Phase 1 (Week 4):</strong> Math & programming fundamentals assessment</span>
+                </li>
+                <li>
+                    <i class="fas fa-check-circle"></i>
+                    <span><strong>End of Phase 2 (Week 8):</strong> ML algorithms implementation project</span>
+                </li>
+                <li>
+                    <i class="fas fa-check-circle"></i>
+                    <span><strong>End of Phase 3 (Week 12):</strong> Deep learning architecture project</span>
+                </li>
+                <li>
+                    <i class="fas fa-check-circle"></i>
+                    <span><strong>End of Phase 4 (Week 24):</strong> SOTA AI capstone project</span>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p><i class="fas fa-heart"></i> Created with passion for AI learners</p>
+            <p>All resources are free and accessible • Follow this roadmap precisely for best results</p>
+            <p>Each phase builds upon previous knowledge • Your journey to AI expertise starts here!</p>
+        </div>
+    </div>
+    
+    <div class="floating-action" onclick="scrollToTop()">
+        <i class="fas fa-arrow-up"></i>
+    </div>
+
+    <script>
+        // Toggle node details
+        function toggleNode(button) {
+            const details = button.nextElementSibling;
+            const icon = button.querySelector('i');
+            
+            if (details.classList.contains('active')) {
+                details.classList.remove('active');
+                button.classList.remove('active');
+                button.querySelector('span').textContent = 'View Details';
+            } else {
+                details.classList.add('active');
+                button.classList.add('active');
+                button.querySelector('span').textContent = 'Hide Details';
+            }
+        }
+
+        // Scroll to top function
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe all roadmap nodes
+        document.querySelectorAll('.roadmap-node').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+
+        // Add hover effects to interactive elements
+        document.querySelectorAll('.resource-list li, .assignment-list li, .schedule-item, .sub-topic').forEach(element => {
+            element.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateX(5px)';
+            });
+            
+            element.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateX(0)';
+            });
+        });
+    </script>
+</body>
+</html>
