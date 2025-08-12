@@ -1,0 +1,1038 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Google Onsite DSA Round: Mastering Algorithmic Excellence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tiempos+Headline:wght@400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'deep-teal': '#0f766e',
+                        'teal-600': '#0d9488',
+                        'teal-700': '#0f766e',
+                        'teal-800': '#115e59',
+                        'accent-gold': '#d97706',
+                        'muted-gray': '#64748b',
+                        'light-gray': '#f8fafc'
+                    },
+                    fontFamily: {
+                        'serif': ['Tiempos Headline', 'serif'],
+                        'sans': ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .serif-heading {
+            font-family: 'Tiempos Headline', serif;
+        }
+        .toc-fixed {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-right: 1px solid #e2e8f0;
+            overflow-y: auto;
+            z-index: 1000;
+            padding: 2rem 1.5rem;
+        }
+        .main-content {
+            margin-left: 280px;
+            min-height: 100vh;
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: center;
+            min-height: 60vh;
+        }
+        .problem-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .problem-card:hover {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .difficulty-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .difficulty-easy { background: #dcfce7; color: #166534; }
+        .difficulty-medium { background: #fef3c7; color: #92400e; }
+        .difficulty-hard { background: #fecaca; color: #991b1b; }
+        .citation-link {
+            color: #0f766e;
+            text-decoration: none;
+            border-bottom: 1px dotted #0f766e;
+            transition: all 0.2s ease;
+        }
+        .citation-link:hover {
+            background: rgba(15, 118, 110, 0.1);
+            border-bottom-style: solid;
+        }
+        .toc-link {
+            display: block;
+            padding: 0.5rem 0;
+            color: #64748b;
+            text-decoration: none;
+            border-left: 2px solid transparent;
+            padding-left: 1rem;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+        .toc-link:hover, .toc-link.active {
+            color: #0f766e;
+            border-left-color: #0f766e;
+            background: rgba(15, 118, 110, 0.05);
+        }
+        .toc-link.level-2 {
+            margin-left: 1rem;
+            font-size: 0.85rem;
+        }
+        .toc-link.level-3 {
+            margin-left: 2rem;
+            font-size: 0.8rem;
+        }
+        .highlight-box {
+            background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+            border: 1px solid #5eead4;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+        .algorithm-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        @media (max-width: 1024px) {
+            .toc-fixed {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            .toc-fixed.mobile-open {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+        }
+        @media (max-width: 768px) {
+            .hero-grid {
+                min-height: auto;
+                padding: 2rem 0;
+            }
+            .hero-grid h1 {
+                font-size: 2.5rem;
+                line-height: 1.2;
+            }
+            .hero-grid h1 span {
+                font-size: 1.8rem;
+            }
+            .hero-grid p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+  </head>
+
+  <body class="bg-light-gray">
+    <!-- Mobile TOC Toggle -->
+    <button id="toc-toggle" class="lg:hidden fixed top-4 left-4 z-50 bg-deep-teal text-white p-3 rounded-full shadow-lg">
+      <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Table of Contents -->
+    <nav class="toc-fixed" id="toc">
+      <div class="mb-8">
+        <h2 class="serif-heading text-xl font-semibold text-deep-teal mb-4">Contents</h2>
+        <a href="#hero" class="toc-link">Executive Summary</a>
+        <a href="#problem-lists" class="toc-link">High-Frequency Problems</a>
+        <a href="#top-100" class="toc-link level-2">Top 100 Questions</a>
+        <a href="#curated-60" class="toc-link level-2">Curated 60 Problems</a>
+        <a href="#leetcode-google" class="toc-link level-2">LeetCode Top Google</a>
+        <a href="#core-dsa" class="toc-link">Core Data Structures</a>
+        <a href="#arrays-strings" class="toc-link level-2">Arrays &amp; Strings</a>
+        <a href="#linked-lists" class="toc-link level-2">Linked Lists</a>
+        <a href="#tree-graphs" class="toc-link level-2">Trees &amp; Graphs</a>
+        <a href="#dynamic-programming" class="toc-link level-2">Dynamic Programming</a>
+        <a href="#advanced-topics" class="toc-link level-2">Advanced Topics</a>
+        <a href="#interview-experiences" class="toc-link">Interview Experiences</a>
+        <a href="#preparation-resources" class="toc-link">Preparation Resources</a>
+        <a href="#strategies" class="toc-link">Success Strategies</a>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Hero Section -->
+      <section id="hero" class="bg-white">
+        <div class="hero-grid max-w-7xl mx-auto px-6 py-12">
+          <div class="space-y-6">
+            <h1 class="serif-heading text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+              <span class="italic text-deep-teal">Mastering</span>
+              <br/>
+              Google&#39;s DSA Interview
+              <br/>
+              <span class="text-accent-gold">Excellence Guide</span>
+            </h1>
+            <p class="text-xl text-muted-gray leading-relaxed max-w-2xl">
+              A comprehensive strategic framework for conquering Google&#39;s Data Structures &amp; Algorithms onsite interview through curated problem mastery and systematic preparation.
+            </p>
+            <div class="flex items-center space-x-6 text-sm text-muted-gray">
+              <span><i class="fas fa-chart-line text-deep-teal mr-2"></i>100+ Curated Problems</span>
+              <span><i class="fas fa-clock text-deep-teal mr-2"></i>Strategic Preparation</span>
+              <span><i class="fas fa-trophy text-deep-teal mr-2"></i>Success Framework</span>
+            </div>
+          </div>
+          <div class="relative">
+            <img src="https://kimi-web-img.moonshot.cn/img/miro.medium.com/66b619333dbd9fa46a3b08cd83d9b9badf67bb4d.jpeg" alt="Algorithmic problem solving concept" class="w-full h-96 object-cover rounded-2xl shadow-2xl" size="large" aspect="wide" style="photo" query="algorithmic problem solving" referrerpolicy="no-referrer" data-modified="1" data-score="0.00"/>
+            <div class="absolute inset-0 bg-gradient-to-r from-deep-teal/20 to-transparent rounded-2xl"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Executive Summary -->
+      <section class="bg-gray-50 py-16">
+        <div class="max-w-4xl mx-auto px-6">
+          <div class="highlight-box">
+            <h2 class="serif-heading text-3xl font-bold text-deep-teal mb-6">Executive Summary</h2>
+            <div class="grid md:grid-cols-2 gap-8">
+              <div>
+                <h3 class="font-semibold text-gray-900 mb-3">Critical Success Factors</h3>
+                <ul class="space-y-2 text-gray-700">
+                  <li class="flex items-start"><i class="fas fa-check text-deep-teal mr-3 mt-1"></i>Master high-frequency LeetCode problems across core domains</li>
+                  <li class="flex items-start"><i class="fas fa-check text-deep-teal mr-3 mt-1"></i>Focus on Array/String, Linked Lists, DP, and Graphs</li>
+                  <li class="flex items-start"><i class="fas fa-check text-deep-teal mr-3 mt-1"></i>Emphasize medium-difficulty problem mastery</li>
+                  <li class="flex items-start"><i class="fas fa-check text-deep-teal mr-3 mt-1"></i>Develop clean, efficient coding practices</li>
+                </ul>
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-900 mb-3">Key Problem Areas</h3>
+                <ul class="space-y-2 text-gray-700">
+                  <li class="flex items-start"><i class="fas fa-code text-accent-gold mr-3 mt-1"></i>Two Sum (Array Manipulation)</li>
+                  <li class="flex items-start"><i class="fas fa-code text-accent-gold mr-3 mt-1"></i>Longest Substring Without Repeating Characters</li>
+                  <li class="flex items-start"><i class="fas fa-code text-accent-gold mr-3 mt-1"></i>Reverse Linked List</li>
+                  <li class="flex items-start"><i class="fas fa-code text-accent-gold mr-3 mt-1"></i>Number of Islands (BFS/DFS)</li>
+                  <li class="flex items-start"><i class="fas fa-code text-accent-gold mr-3 mt-1"></i>LRU Cache (System Design)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- High-Frequency Problems -->
+      <section id="problem-lists" class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+          <h2 class="serif-heading text-4xl font-bold text-center text-gray-900 mb-12">High-Frequency Problem Lists</h2>
+
+          <!-- Top 100 Problems -->
+          <div id="top-100" class="mb-16">
+            <h3 class="serif-heading text-3xl font-semibold text-deep-teal mb-8">Top 100 Most Frequently Asked Questions</h3>
+
+            <div class="algorithm-grid">
+              <div class="problem-card">
+                <h4 class="font-semibold text-lg text-gray-900 mb-4">Array &amp; String Manipulation</h4>
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Next Permutation</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Subarray Sum Equals K</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Trapping Rain Water</span>
+                    <span class="difficulty-badge difficulty-hard">Hard</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Longest Substring Without Repeating</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-gray mt-4">
+                  Source: <a href="https://interviewsolver.com/interview-questions/google" class="citation-link">InterviewSolver</a>
+                </p>
+              </div>
+
+              <div class="problem-card">
+                <h4 class="font-semibold text-lg text-gray-900 mb-4">Linked Lists &amp; Trees</h4>
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Merge Two Sorted Lists</span>
+                    <span class="difficulty-badge difficulty-easy">Easy</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Linked List Cycle</span>
+                    <span class="difficulty-badge difficulty-easy">Easy</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Add Two Numbers</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Reverse Linked List</span>
+                    <span class="difficulty-badge difficulty-easy">Easy</span>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-gray mt-4">
+                  Source: <a href="https://preplaced.in/blog/50-most-asked-dsa-interview-questions" class="citation-link">Preplaced.in</a>
+                </p>
+              </div>
+
+              <div class="problem-card">
+                <h4 class="font-semibold text-lg text-gray-900 mb-4">Dynamic Programming</h4>
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Climbing Stairs</span>
+                    <span class="difficulty-badge difficulty-easy">Easy</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">House Robber</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Coin Change</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Longest Increasing Subsequence</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-gray mt-4">
+                  Source: <a href="https://preplaced.in/blog/50-most-asked-dsa-interview-questions" class="citation-link">Preplaced.in</a>
+                </p>
+              </div>
+
+              <div class="problem-card">
+                <h4 class="font-semibold text-lg text-gray-900 mb-4">Graphs &amp; BFS/DFS</h4>
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Number of Islands</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Clone Graph</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Course Schedule</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-sm">Word Ladder</span>
+                    <span class="difficulty-badge difficulty-hard">Hard</span>
+                  </div>
+                </div>
+                <p class="text-xs text-muted-gray mt-4">
+                  Source: <a href="https://preplaced.in/blog/50-most-asked-dsa-interview-questions" class="citation-link">Preplaced.in</a>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Curated 60 Problems -->
+          <div id="curated-60" class="mb-16">
+            <h3 class="serif-heading text-3xl font-semibold text-deep-teal mb-8">Curated List of 60 Essential Problems</h3>
+            <div class="bg-gray-50 rounded-2xl p-8">
+              <p class="text-gray-700 mb-6">
+                A FAANG-approved compilation focusing on fundamental problems across linked lists, stacks, heaps, hash maps, graphs, trees, sorting, dynamic programming, binary search, recursion, sliding window, and greedy algorithms.
+              </p>
+              <div class="grid md:grid-cols-3 gap-6">
+                <div class="bg-white rounded-lg p-6">
+                  <h4 class="font-semibold text-deep-teal mb-3">LinkedList &amp; HashMap</h4>
+                  <ul class="text-sm space-y-2">
+                    <li>• Linked List Cycle</li>
+                    <li>• Valid Parentheses</li>
+                    <li>• Two Sum</li>
+                    <li>• Group Anagrams</li>
+                  </ul>
+                </div>
+                <div class="bg-white rounded-lg p-6">
+                  <h4 class="font-semibold text-deep-teal mb-3">Graphs &amp; Trees</h4>
+                  <ul class="text-sm space-y-2">
+                    <li>• Number of Islands</li>
+                    <li>• Maximum Depth of Binary Tree</li>
+                    <li>• Word Ladder</li>
+                    <li>• Validate Binary Search Tree</li>
+                  </ul>
+                </div>
+                <div class="bg-white rounded-lg p-6">
+                  <h4 class="font-semibold text-deep-teal mb-3">DP &amp; Advanced</h4>
+                  <ul class="text-sm space-y-2">
+                    <li>• Climbing Stairs</li>
+                    <li>• House Robber</li>
+                    <li>• Coin Change</li>
+                    <li>• Longest Increasing Path</li>
+                  </ul>
+                </div>
+              </div>
+              <p class="text-xs text-muted-gray mt-6">
+                Source: <a href="https://medium.com/@koheiarai94/60-leetcode-questions-to-prepare-for-coding-interview-8abbb6af589e" class="citation-link">Kohei Arai - Medium</a>
+              </p>
+            </div>
+          </div>
+
+          <!-- LeetCode Top Google Questions -->
+          <div id="leetcode-google" class="mb-16">
+            <h3 class="serif-heading text-3xl font-semibold text-deep-teal mb-8">LeetCode&#39;s &#34;Top Google Questions&#34; List</h3>
+            <div class="bg-white rounded-2xl border p-8">
+              <div class="grid lg:grid-cols-2 gap-8">
+                <div>
+                  <h4 class="font-semibold text-lg mb-4">Problem Distribution</h4>
+                  <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm">Easy Problems</span>
+                      <span class="difficulty-badge difficulty-easy">1</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm">Medium Problems</span>
+                      <span class="difficulty-badge difficulty-medium">31</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm">Hard Problems</span>
+                      <span class="difficulty-badge difficulty-hard">18</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 class="font-semibold text-lg mb-4">Featured Categories</h4>
+                  <ul class="space-y-2 text-sm">
+                    <li class="flex items-center"><i class="fas fa-th text-deep-teal mr-3"></i>Grid and Pathfinding</li>
+                    <li class="flex items-center"><i class="fas fa-random text-deep-teal mr-3"></i>Randomized &amp; Iterator</li>
+                    <li class="flex items-center"><i class="fas fa-text-width text-deep-teal mr-3"></i>String &amp; Sequence Matching</li>
+                    <li class="flex items-center"><i class="fas fa-calendar text-deep-teal mr-3"></i>Scheduling &amp; Meeting Rooms</li>
+                  </ul>
+                </div>
+              </div>
+              <p class="text-xs text-muted-gray mt-6">
+                Source: <a href="https://leetcode.com/problem-list/7p55wqm/" class="citation-link">LeetCode Top Google Questions</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Core Data Structures -->
+      <section id="core-dsa" class="py-16 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-6">
+          <h2 class="serif-heading text-4xl font-bold text-center text-gray-900 mb-12">Core Data Structures &amp; Algorithms</h2>
+
+          <!-- Arrays and Strings -->
+          <div id="arrays-strings" class="mb-16">
+            <h3 class="serif-heading text-3xl font-semibold text-deep-teal mb-8">Arrays and Strings</h3>
+            <div class="grid lg:grid-cols-2 gap-8">
+              <div class="bg-white rounded-2xl p-8">
+                <h4 class="font-semibold text-xl mb-6">Essential Techniques</h4>
+                <div class="space-y-4">
+                  <div class="border-l-4 border-deep-teal pl-4">
+                    <h5 class="font-semibold">Two Pointer Technique</h5>
+                    <p class="text-sm text-gray-600">Solving problems like Two Sum, Container With Most Water, and Trapping Rain Water</p>
+                  </div>
+                  <div class="border-l-4 border-accent-gold pl-4">
+                    <h5 class="font-semibold">Sliding Window</h5>
+                    <p class="text-sm text-gray-600">Longest Substring Without Repeating Characters, Minimum Window Substring</p>
+                  </div>
+                  <div class="border-l-4 border-deep-teal pl-4">
+                    <h5 class="font-semibold">Hash Map Optimization</h5>
+                    <p class="text-sm text-gray-600">Subarray Sum Equals K, Group Anagrams, First Unique Character</p>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-white rounded-2xl p-8">
+                <h4 class="font-semibold text-xl mb-6">Key Problem Patterns</h4>
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span class="font-medium">Two Sum &amp; Variations</span>
+                    <span class="difficulty-badge difficulty-easy">Easy</span>
+                  </div>
+                  <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span class="font-medium">Longest Substring Without Repeating</span>
+                    <span class="difficulty-badge difficulty-medium">Medium</span>
+                  </div>
+                  <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span class="font-medium">Merge Sorted Arrays</span>
+                    <span class="difficulty-badge difficulty-easy">Easy</span>
+                  </div>
+                  <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span class="font-medium">Text Justification</span>
+                    <span class="difficulty-badge difficulty-hard">Hard</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Linked Lists -->
+          <div id="linked-lists" class="mb-16">
+            <h3 class="serif-heading text-3xl font-semibold text-deep-teal mb-8">Linked Lists</h3>
+            <div class="bg-white rounded-2xl p-8">
+              <div class="grid md:grid-cols-3 gap-6">
+                <div class="text-center">
+                  <div class="w-16 h-16 bg-deep-teal/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-search text-deep-teal text-xl"></i>
+                  </div>
+                  <h4 class="font-semibold mb-2">Cycle Detection</h4>
+                  <p class="text-sm text-gray-600">Floyd&#39;s Tortoise and Hare algorithm for efficient O(n) time and O(1) space detection</p>
+                </div>
+                <div class="text-center">
+                  <div class="w-16 h-16 bg-accent-gold/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-plus text-accent-gold text-xl"></i>
+                  </div>
+                  <h4 class="font-semibold mb-2">Adding Numbers</h4>
+                  <p class="text-sm text-gray-600">Adding two numbers represented as linked lists with carry management</p>
+                </div>
+                <div class="text-center">
+                  <div class="w-16 h-16 bg-deep-teal/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exchange-alt text-deep-teal text-xl"></i>
+                  </div>
+                  <h4 class="font-semibold mb-2">Reversing Lists</h4>
+                  <p class="text-sm text-gray-600">Both iterative and recursive approaches for reversing linked lists</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trees and Graphs -->
+          <div id="tree-graphs" class="mb-16">
+            <h3 class="serif-heading text-3xl font-semibold text-deep-teal mb-8">Trees and Graphs</h3>
+            <div class="grid lg:grid-cols-2 gap-8">
+              <div class="space-y-6">
+                <div class="bg-white rounded-xl p-6">
+                  <h4 class="font-semibold text-lg mb-4">Binary Tree Traversals</h4>
+                  <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                      <span>Inorder Traversal</span>
+                      <span class="difficulty-badge difficulty-easy">Easy</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span>Preorder Traversal</span>
+                      <span class="difficulty-badge difficulty-easy">Easy</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span>Postorder Traversal</span>
+                      <span class="difficulty-badge difficulty-easy">Easy</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span>Level Order Traversal</span>
+                      <span class="difficulty-badge difficulty-medium">Medium</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-white rounded-xl p-6">
+                  <h4 class="font-semibold text-lg mb-4">Graph Algorithms</h4>
+                  <ul class="space-y-2 text-sm">
+                    <li class="flex items-center"><i class="fas fa-project-diagram text-deep-teal mr-3"></i>BFS for shortest path finding</li>
+                    <li class="flex items-center"><i class="fas fa-project-diagram text-deep-teal mr-3"></i>DFS for connected components</li>
+                    <li class="flex items-center"><i class="fas fa-project-diagram text-deep-teal mr-3"></i>Topological sorting for DAGs</li>
+                    <li class="flex items-center"><i class="fas fa-project-diagram text-deep-teal mr-3"></i>Union-Find for connectivity</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="bg-white rounded-xl p-6">
+                <h4 class="font-semibold text-lg mb-4">Complex Graph Problems</h4>
+                <div class="space-y-4">
+                  <div class="border border-gray-200 rounded-lg p-4">
+                    <h5 class="font-medium text-deep-teal">Number of Islands</h5>
+                    <p class="text-sm text-gray-600 mt-1">Count connected components in 2D grid using DFS/BFS</p>
+                    <span class="difficulty-badge difficulty-medium mt-2">Medium</span>
+                  </div>
+                  <div class="border border-gray-200 rounded-lg p-4">
+                    <h5 class="font-medium text-deep-teal">Longest Increasing Path</h5>
+                    <p class="text-sm text-gray-600 mt-1">DFS with memoization in matrix</p>
+                    <span class="difficulty-badge difficulty-hard mt-2">Hard</span>
+                  </div>
+                  <div class="border border-gray-200 rounded-lg p-4">
+                    <h5 class="font-medium text-deep-teal">Course Schedule</h5>
+                    <p class="text-sm text-gray-600 mt-1">Detect cycles in directed graphs</p>
+                    <span class="difficulty-badge difficulty-medium mt-2">Medium</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dynamic Programming -->
+          <div id="dynamic-programming" class="mb-16">
+            <h3 class="serif-heading text-3xl font-semibold text-deep-teal mb-8">Dynamic Programming</h3>
+            <div class="bg-white rounded-2xl p-8">
+              <div class="grid md:grid-cols-2 gap-8 mb-8">
+                <div>
+                  <h4 class="font-semibold text-xl mb-4">DP Patterns</h4>
+                  <div class="space-y-3">
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                      <h5 class="font-medium">Knapsack Variations</h5>
+                      <p class="text-sm text-gray-600">0/1 Knapsack, Unbounded Knapsack, Fractional Knapsack</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                      <h5 class="font-medium">Sequence DP</h5>
+                      <p class="text-sm text-gray-600">Longest Common Subsequence, Longest Increasing Subsequence</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                      <h5 class="font-medium">Partition DP</h5>
+                      <p class="text-sm text-gray-600">Coin Change, Word Break, Palindrome Partitioning</p>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 class="font-semibold text-xl mb-4">House Robber Series</h4>
+                  <div class="space-y-3">
+                    <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                      <span>House Robber I</span>
+                      <span class="difficulty-badge difficulty-medium">Medium</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                      <span>House Robber II (Circular)</span>
+                      <span class="difficulty-badge difficulty-medium">Medium</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                      <span>House Robber III (Tree)</span>
+                      <span class="difficulty-badge difficulty-medium">Medium</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="highlight-box">
+                <h4 class="font-semibold text-lg mb-3">DP Optimization Strategies</h4>
+                <div class="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <h5 class="font-medium text-deep-teal mb-2">State Transition</h5>
+                    <p class="text-sm text-gray-700">Define clear state representation and transition functions</p>
+                  </div>
+                  <div>
+                    <h5 class="font-medium text-deep-teal mb-2">Memoization vs Tabulation</h5>
+                    <p class="text-sm text-gray-700">Choose between top-down and bottom-up approaches</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Topics -->
+          <div id="advanced-topics" class="mb-16">
+            <h3 class="serif-heading text-3xl font-semibold text-deep-teal mb-8">Advanced Topics</h3>
+            <div class="grid lg:grid-cols-3 gap-6">
+              <div class="bg-white rounded-xl p-6">
+                <div class="w-12 h-12 bg-deep-teal/10 rounded-lg flex items-center justify-center mb-4">
+                  <i class="fas fa-sitemap text-deep-teal text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-lg mb-3">Trie Data Structure</h4>
+                <p class="text-sm text-gray-600 mb-4">Prefix trees for efficient string search and retrieval operations</p>
+                <div class="space-y-2">
+                  <div class="text-sm">• Word Search II</div>
+                  <div class="text-sm">• Implement Trie (Prefix Tree)</div>
+                  <div class="text-sm">• Longest Common Prefix</div>
+                </div>
+              </div>
+              <div class="bg-white rounded-xl p-6">
+                <div class="w-12 h-12 bg-accent-gold/10 rounded-lg flex items-center justify-center mb-4">
+                  <i class="fas fa-link text-accent-gold text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-lg mb-3">Union-Find</h4>
+                <p class="text-sm text-gray-600 mb-4">Disjoint-set for connectivity and component tracking</p>
+                <div class="space-y-2">
+                  <div class="text-sm">• Number of Islands</div>
+                  <div class="text-sm">• Friend Circles</div>
+                  <div class="text-sm">• Earliest Moment When All Friends</div>
+                </div>
+              </div>
+              <div class="bg-white rounded-xl p-6">
+                <div class="w-12 h-12 bg-deep-teal/10 rounded-lg flex items-center justify-center mb-4">
+                  <i class="fas fa-calendar-alt text-deep-teal text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-lg mb-3">Interval Management</h4>
+                <p class="text-sm text-gray-600 mb-4">Handling overlapping intervals and scheduling</p>
+                <div class="space-y-2">
+                  <div class="text-sm">• My Calendar I/II/III</div>
+                  <div class="text-sm">• Meeting Rooms II</div>
+                  <div class="text-sm">• Range Module</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Interview Experiences -->
+      <section id="interview-experiences" class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+          <h2 class="serif-heading text-4xl font-bold text-center text-gray-900 mb-12">Real-World Interview Experiences</h2>
+
+          <div class="grid lg:grid-cols-2 gap-8">
+            <div class="bg-gray-50 rounded-2xl p-8">
+              <h3 class="font-semibold text-xl text-deep-teal mb-4">Software Engineer L3 (2024)</h3>
+              <div class="space-y-4">
+                <div class="flex items-start space-x-3">
+                  <div class="w-2 h-2 bg-deep-teal rounded-full mt-2"></div>
+                  <p class="text-gray-700">Question about arranging items in a matrix such that similar items are placed next to each other</p>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <div class="w-2 h-2 bg-deep-teal rounded-full mt-2"></div>
+                  <p class="text-gray-700">Emphasis on creative problem-solving and efficient solution design</p>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <div class="w-2 h-2 bg-deep-teal rounded-full mt-2"></div>
+                  <p class="text-gray-700">Clear communication of thought process and edge case handling</p>
+                </div>
+              </div>
+              <p class="text-xs text-muted-gray mt-4">
+                Source: <a href="https://medium.com/@sshiwangi770/my-google-software-engineer-interview-experience-l4-46de5a70fb1f" class="citation-link">Medium - Google SWE L4 Experience</a>
+              </p>
+            </div>
+
+            <div class="bg-gray-50 rounded-2xl p-8">
+              <h3 class="font-semibold text-xl text-deep-teal mb-4">SWE L4 Interview (2024)</h3>
+              <div class="space-y-4">
+                <div class="flex items-start space-x-3">
+                  <div class="w-2 h-2 bg-accent-gold rounded-full mt-2"></div>
+                  <p class="text-gray-700">Designing data structure for dynamic updates and real-time range queries</p>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <div class="w-2 h-2 bg-accent-gold rounded-full mt-2"></div>
+                  <p class="text-gray-700">Deep understanding of trade-offs between segment trees and binary indexed trees</p>
+                </div>
+                <div class="flex items-start space-x-3">
+                  <div class="w-2 h-2 bg-accent-gold rounded-full mt-2"></div>
+                  <p class="text-gray-700">Scalability and performance considerations for large-scale systems</p>
+                </div>
+              </div>
+              <p class="text-xs text-muted-gray mt-4">
+                Source: <a href="https://medium.com/@himanshusingour7/i-gave-googles-7-round-sde-2-interview-payment-pay-google-pay-d0d79c35edef" class="citation-link">Medium - Google 7-Round Interview</a>
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-12 bg-deep-teal/5 rounded-2xl p-8">
+            <h3 class="font-semibold text-xl text-center text-deep-teal mb-6">Common Interview Themes</h3>
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="text-center">
+                <i class="fas fa-comments text-3xl text-deep-teal mb-3"></i>
+                <h4 class="font-semibold mb-2">Communication Skills</h4>
+                <p class="text-sm text-gray-600">Clear articulation of thought process and solution approach</p>
+              </div>
+              <div class="text-center">
+                <i class="fas fa-cogs text-3xl text-deep-teal mb-3"></i>
+                <h4 class="font-semibold mb-2">Problem-Solving</h4>
+                <p class="text-sm text-gray-600">Creative approaches to complex algorithmic challenges</p>
+              </div>
+              <div class="text-center">
+                <i class="fas fa-chart-line text-3xl text-deep-teal mb-3"></i>
+                <h4 class="font-semibold mb-2">Optimization</h4>
+                <p class="text-sm text-gray-600">Efficiency analysis and performance optimization</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Preparation Resources -->
+      <section id="preparation-resources" class="py-16 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-6">
+          <h2 class="serif-heading text-4xl font-bold text-center text-gray-900 mb-12">Comprehensive Preparation Resources</h2>
+
+          <div class="grid lg:grid-cols-3 gap-8 mb-12">
+            <div class="bg-white rounded-xl p-6">
+              <h3 class="font-semibold text-lg text-deep-teal mb-4">Curated Problem Lists</h3>
+              <ul class="space-y-3 text-sm">
+                <li class="flex items-center">
+                  <i class="fas fa-list-check text-deep-teal mr-3"></i>
+                  <a href="https://www.geeksforgeeks.org/google-sde-sheet/" class="citation-link">GeeksforGeeks Google SDE Sheet</a>
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-code text-deep-teal mr-3"></i>
+                  <a href="https://leetcode.com/explore/" class="citation-link">LeetCode Study Plans</a>
+                </li>
+                <li class="flex items-center">
+                  <i class="fab fa-github text-deep-teal mr-3"></i>
+                  <a href="https://github.com/MisterBooo/LeetCodeAnimation" class="citation-link">GitHub Company-wise Problems</a>
+                </li>
+              </ul>
+            </div>
+
+            <div class="bg-white rounded-xl p-6">
+              <h3 class="font-semibold text-lg text-deep-teal mb-4">Online Platforms</h3>
+              <ul class="space-y-3 text-sm">
+                <li class="flex items-center">
+                  <i class="fas fa-laptop-code text-accent-gold mr-3"></i>
+                  <a href="https://leetcode.com/" class="citation-link">LeetCode (Primary Platform)</a>
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-book text-accent-gold mr-3"></i>
+                  <a href="https://www.geeksforgeeks.org/" class="citation-link">GeeksforGeeks</a>
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-trophy text-accent-gold mr-3"></i>
+                  <a href="https://interviewsolver.com/" class="citation-link">InterviewSolver</a>
+                </li>
+              </ul>
+            </div>
+
+            <div class="bg-white rounded-xl p-6">
+              <h3 class="font-semibold text-lg text-deep-teal mb-4">Learning Resources</h3>
+              <ul class="space-y-3 text-sm">
+                <li class="flex items-center">
+                  <i class="fas fa-newspaper text-deep-teal mr-3"></i>
+                  <a href="https://medium.com/tag/google-interview" class="citation-link">Medium Articles &amp; Blogs</a>
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-users text-deep-teal mr-3"></i>
+                  <a href="https://leetcode.com/discuss/" class="citation-link">LeetCode Discussion</a>
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-video text-deep-teal mr-3"></i>
+                  <a href="https://www.youtube.com/results?search_query=google+interview+preparation" class="citation-link">YouTube Tutorials</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="highlight-box">
+            <h3 class="font-semibold text-xl text-deep-teal mb-6">Strategic Preparation Timeline</h3>
+            <div class="grid md:grid-cols-4 gap-6">
+              <div class="text-center">
+                <div class="w-12 h-12 bg-deep-teal text-white rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span class="font-bold">1</span>
+                </div>
+                <h4 class="font-semibold mb-2">Foundation (2-3 weeks)</h4>
+                <p class="text-sm text-gray-600">Master core data structures and basic algorithms</p>
+              </div>
+              <div class="text-center">
+                <div class="w-12 h-12 bg-deep-teal text-white rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span class="font-bold">2</span>
+                </div>
+                <h4 class="font-semibold mb-2">Problem Solving (4-6 weeks)</h4>
+                <p class="text-sm text-gray-600">Work through curated problem lists systematically</p>
+              </div>
+              <div class="text-center">
+                <div class="w-12 h-12 bg-deep-teal text-white rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span class="font-bold">3</span>
+                </div>
+                <h4 class="font-semibold mb-2">Mock Interviews (2 weeks)</h4>
+                <p class="text-sm text-gray-600">Practice with timer and explanation</p>
+              </div>
+              <div class="text-center">
+                <div class="w-12 h-12 bg-accent-gold text-white rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span class="font-bold">4</span>
+                </div>
+                <h4 class="font-semibold mb-2">Final Review (1 week)</h4>
+                <p class="text-sm text-gray-600">Focus on weak areas and optimization</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Success Strategies -->
+      <section id="strategies" class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+          <h2 class="serif-heading text-4xl font-bold text-center text-gray-900 mb-12">Success Strategies</h2>
+
+          <div class="grid lg:grid-cols-2 gap-12">
+            <div>
+              <h3 class="font-semibold text-2xl text-deep-teal mb-6">Interview Performance Tips</h3>
+              <div class="space-y-6">
+                <div class="flex items-start space-x-4">
+                  <div class="w-8 h-8 bg-deep-teal/10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i class="fas fa-clock text-deep-teal text-sm"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold mb-2">Practicing with Timer</h4>
+                    <p class="text-gray-600 text-sm">Simulate real interview pressure by solving problems within time constraints. Aim for 15-20 minutes per medium problem, including explanation time.</p>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-4">
+                  <div class="w-8 h-8 bg-accent-gold/10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i class="fas fa-comments text-accent-gold text-sm"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold mb-2">Explaining Thought Process</h4>
+                    <p class="text-gray-600 text-sm">Verbalize your thinking throughout the solution process. Interviewers evaluate your communication skills and problem-solving approach.</p>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-4">
+                  <div class="w-8 h-8 bg-deep-teal/10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i class="fas fa-shield-alt text-deep-teal text-sm"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold mb-2">Handling Edge Cases</h4>
+                    <p class="text-gray-600 text-sm">Always consider boundary conditions: empty inputs, single elements, extreme values, and other edge scenarios that could break your solution.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="font-semibold text-2xl text-deep-teal mb-6">Technical Excellence</h3>
+              <div class="space-y-6">
+                <div class="flex items-start space-x-4">
+                  <div class="w-8 h-8 bg-deep-teal/10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i class="fas fa-tachometer-alt text-deep-teal text-sm"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold mb-2">Optimization Strategies</h4>
+                    <p class="text-gray-600 text-sm">Always analyze time and space complexity. Look for opportunities to optimize from O(n²) to O(n log n) or better through efficient data structures.</p>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-4">
+                  <div class="w-8 h-8 bg-accent-gold/10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i class="fas fa-code text-accent-gold text-sm"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold mb-2">Clean Code Practices</h4>
+                    <p class="text-gray-600 text-sm">Write readable, modular code with clear variable names. Use helper functions when appropriate and maintain consistent coding style.</p>
+                  </div>
+                </div>
+                <div class="flex items-start space-x-4">
+                  <div class="w-8 h-8 bg-deep-teal/10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i class="fas fa-sync-alt text-deep-teal text-sm"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold mb-2">Iterative Improvement</h4>
+                    <p class="text-gray-600 text-sm">Start with brute-force solutions, then optimize. Show your thought process and discuss trade-offs between different approaches.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-16 bg-gradient-to-r from-deep-teal to-teal-600 rounded-2xl p-8 text-white">
+            <div class="text-center">
+              <h3 class="serif-heading text-3xl font-bold mb-4">Ready to Conquer Your Google Interview?</h3>
+              <p class="text-xl mb-6 text-teal-100">Follow this comprehensive guide, practice systematically, and approach each problem with confidence and clarity.</p>
+              <div class="flex justify-center space-x-6 text-sm">
+                <div class="text-center">
+                  <div class="text-2xl font-bold">100+</div>
+                  <div class="text-teal-200">Curated Problems</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold">7</div>
+                  <div class="text-teal-200">Core Categories</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold">∞</div>
+                  <div class="text-teal-200">Success Potential</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-6">
+          <div class="text-center">
+            <h3 class="serif-heading text-2xl font-semibold mb-4">Google DSA Interview Mastery</h3>
+            <p class="text-gray-400 mb-6">Comprehensive preparation guide for algorithmic excellence</p>
+            <div class="flex justify-center space-x-8 text-sm text-gray-400">
+              <span>Curated Problem Lists</span>
+              <span>•</span>
+              <span>Strategic Preparation</span>
+              <span>•</span>
+              <span>Success Framework</span>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+        // Table of Contents functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tocLinks = document.querySelectorAll('.toc-link');
+            const sections = document.querySelectorAll('section[id]');
+            const tocToggle = document.getElementById('toc-toggle');
+            const toc = document.getElementById('toc');
+            
+            // Mobile TOC toggle
+            tocToggle.addEventListener('click', function() {
+                toc.classList.toggle('mobile-open');
+            });
+            
+            // Close TOC when clicking outside on mobile
+            document.addEventListener('click', function(e) {
+                if (window.innerWidth <= 1024 && !toc.contains(e.target) && !tocToggle.contains(e.target)) {
+                    toc.classList.remove('mobile-open');
+                }
+            });
+            
+            // Smooth scrolling and active link highlighting
+            tocLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href').substring(1);
+                    const targetSection = document.getElementById(targetId);
+                    
+                    if (targetSection) {
+                        const offsetTop = targetSection.offsetTop - 20;
+                        window.scrollTo({
+                            top: offsetTop,
+                            behavior: 'smooth'
+                        });
+                        
+                        // Close mobile TOC after clicking a link
+                        if (window.innerWidth <= 1024) {
+                            toc.classList.remove('mobile-open');
+                        }
+                    }
+                });
+            });
+            
+            // Highlight active section in TOC
+            function updateActiveLink() {
+                let current = '';
+                const scrollY = window.pageYOffset;
+                
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop - 100;
+                    const sectionHeight = section.offsetHeight;
+                    const sectionId = section.getAttribute('id');
+                    
+                    if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+                        current = sectionId;
+                    }
+                });
+                
+                tocLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === '#' + current) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+            
+            window.addEventListener('scroll', updateActiveLink);
+            updateActiveLink();
+        });
+    </script>
+  
+
+</body></html>
