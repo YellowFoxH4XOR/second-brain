@@ -1,2 +1,0 @@
-# second-brain
-Stuff logic
