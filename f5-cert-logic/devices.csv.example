@@ -1,6 +1,0 @@
-hostname,ip,username,password
-bigip-prod-01,192.168.1.100,admin,
-bigip-prod-02,192.168.1.101,admin,
-bigip-dev-01,192.168.1.200,testuser,testpass
-bigip-backup,192.168.1.150,,
-failover-unit,192.168.1.160,operator, 
