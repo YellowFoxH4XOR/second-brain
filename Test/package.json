@@ -1,0 +1,17 @@
+{
+  "name": "responses-to-chat-proxy",
+  "version": "1.0.0",
+  "description": "Transparent proxy that translates OpenAI Responses API (/v1/responses) into Chat Completions API (/v1/chat/completions) for LiteLLM / Bedrock backends.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
