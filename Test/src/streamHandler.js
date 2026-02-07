@@ -35,6 +35,7 @@ export class StreamHandler {
     this.started          = false;   // have we emitted response.created?
     this.messageStarted   = false;   // emitted output_item.added for the text msg?
     this.messageFinished  = false;   // emitted output_item.done  for the text msg?
+    this.completed        = false;   // have we emitted response.completed?
 
     // ── Accumulators ──────────────────────────────────────────────────
     this.messageId        = `msg_${randomUUID()}`;
@@ -297,6 +298,8 @@ export class StreamHandler {
 
   /** Close everything and emit response.completed. */
   #finalise() {
+    if (this.completed) return [];
+
     const events = [];
 
     // Close text message if still open
@@ -335,6 +338,7 @@ export class StreamHandler {
     }
 
     // ── response.completed ────────────────────────────────────────────
+    this.completed = true;
     events.push(
       this.#sse("response.completed", {
         response: this.getCompletedResponse(),
@@ -342,6 +346,22 @@ export class StreamHandler {
     );
 
     return events;
+  }
+
+  /**
+   * Safety net: if the upstream stream ended without a finish_reason or
+   * [DONE], force-emit all closing events so Codex CLI always receives
+   * response.completed before the HTTP stream closes.
+   *
+   * @returns {string[]}  SSE event strings (empty if already completed)
+   */
+  forceComplete() {
+    if (this.completed) return [];
+    // Ensure response.created was sent (no-op if already started)
+    if (!this.started) {
+      this.started = true;
+    }
+    return this.#finalise();
   }
 
   /** Format a single named SSE event.

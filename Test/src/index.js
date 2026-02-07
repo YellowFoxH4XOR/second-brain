@@ -159,15 +159,10 @@ app.post("/v1/responses", async (req, res) => {
           const payload = line.slice(6);
 
           if (payload === "[DONE]") {
-            // If the handler never received a finish_reason (some backends
-            // skip it), force-finalise here.
-            if (handler.started && handler.outputItems.filter(Boolean).length === 0) {
-              // Edge case: we got [DONE] without any finish_reason
-              const finalEvents = handler.processChunk({
-                choices: [{ delta: {}, finish_reason: "stop" }],
-              });
-              for (const ev of finalEvents) res.write(ev);
-            }
+            // Some backends skip the finish_reason chunk.  Ensure we
+            // always emit response.completed before the stream closes.
+            const finalEvents = handler.forceComplete();
+            for (const ev of finalEvents) res.write(ev);
             continue;
           }
 
@@ -194,6 +189,11 @@ app.post("/v1/responses", async (req, res) => {
       }
     }
 
+    // Safety net: if the upstream never sent finish_reason or [DONE],
+    // force-emit response.completed so Codex CLI doesn't retry forever.
+    const trailing = handler.forceComplete();
+    for (const ev of trailing) res.write(ev);
+
     // Store the completed response
     const completed = handler.getCompletedResponse();
     responseStore.set(completed.id, completed);
@@ -203,11 +203,10 @@ app.post("/v1/responses", async (req, res) => {
     log("error", "POST /v1/responses error:", err);
 
     if (res.headersSent) {
-      // Already streaming — best we can do is close the connection
+      // Already streaming — force-complete so Codex CLI gets response.completed
       try {
-        res.write(
-          `event: error\ndata: ${JSON.stringify({ error: { message: err.message } })}\n\n`
-        );
+        const trailing = handler.forceComplete();
+        for (const ev of trailing) res.write(ev);
       } catch { /* ignore */ }
       return res.end();
     }
