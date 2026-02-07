@@ -70,12 +70,14 @@ export class StreamHandler {
       this.started = true;
       events.push(
         this.#sse("response.created", {
-          id:         this.responseId,
-          object:     "response",
-          created_at: this.createdAt,
-          status:     "in_progress",
-          model:      this.model,
-          output:     [],
+          response: {
+            id:         this.responseId,
+            object:     "response",
+            created_at: this.createdAt,
+            status:     "in_progress",
+            model:      this.model,
+            output:     [],
+          },
         })
       );
     }
@@ -334,14 +336,20 @@ export class StreamHandler {
 
     // ── response.completed ────────────────────────────────────────────
     events.push(
-      this.#sse("response.completed", this.getCompletedResponse())
+      this.#sse("response.completed", {
+        response: this.getCompletedResponse(),
+      })
     );
 
     return events;
   }
 
-  /** Format a single named SSE event. */
+  /** Format a single named SSE event.
+   *  Always injects `type` into the data payload so Codex CLI's
+   *  ResponsesStreamEvent deserialisation (which requires `type`) succeeds.
+   */
   #sse(event, data) {
-    return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    const payload = { type: event, ...data };
+    return `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
   }
 }
